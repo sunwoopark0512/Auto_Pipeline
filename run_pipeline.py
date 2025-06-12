@@ -11,12 +11,12 @@ logging.basicConfig(
 )
 
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
+# parse_failed_gpt.py 와 notify_retry_result.py 스크립트는 더 이상 사용하지 않
+# 습니다. 현재 파이프라인은 세 단계로 구성됩니다.
 PIPELINE_SEQUENCE = [
     "hook_generator.py",
-    "parse_failed_gpt.py",
     "retry_failed_uploads.py",
-    "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    "retry_dashboard_notifier.py",
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
