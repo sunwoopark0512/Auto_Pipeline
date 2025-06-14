@@ -1,0 +1,4 @@
+[
+  {"keyword": "test1", "hook_lines": ["hook line"], "source": "unit", "score": 0.9},
+  {"keyword": "test2", "hook_lines": ["hook line2"], "source": "unit", "score": 0.8}
+]
