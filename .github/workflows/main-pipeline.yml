@@ -1,0 +1,66 @@
+name: Main Pipeline
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ matrix.env }}
+    strategy:
+      matrix:
+        env: [staging, prod]
+    environment: ${{ matrix.env }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.env }}-${{ hashFiles('**/requirements*.txt') }}-${{ hashFiles('scripts/**.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.env }}-
+
+      - run: pip install -r requirements.txt
+
+      - run: |
+          pylint --fail-under 8.0 run_pipeline.py scripts
+          mypy --config-file mypy.ini .
+          pytest -q
+
+      - run: python scripts/run_pipeline.py
+
+      - name: Report metric
+        if: success()
+        continue-on-error: true
+        timeout-minutes: 1
+        run: |
+          curl -X POST \
+            -H "DD-API-KEY:${{ secrets.DD_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"series":[{"metric":"pipeline.run","points":[['$(date +%s)',1]],"type":"count","tags":["env:${{ matrix.env }}","status:success"]}]}' \
+            https://api.datadoghq.com/api/v1/series
+
+      - name: Report metric failure
+        if: failure()
+        continue-on-error: true
+        timeout-minutes: 1
+        run: |
+          curl -X POST \
+            -H "DD-API-KEY:${{ secrets.DD_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"series":[{"metric":"pipeline.run","points":[['$(date +%s)',0]],"type":"count","tags":["env:${{ matrix.env }}","status:failure"]}]}' \
+            https://api.datadoghq.com/api/v1/series
+
+      - name: Slack notify
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            { "text": ":rotating_light: `${{ matrix.env }}` 배포 실패!" }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
