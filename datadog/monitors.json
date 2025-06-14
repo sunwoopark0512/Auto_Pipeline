@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Pipeline Failure Alert",
+    "type": "metric alert",
+    "query": "sum(last_5m):sum:pipeline.run{status:fail,env:prod} >= 1",
+    "message": "{{#is_alert}}@slack-your-channel{{/is_alert}} Pipeline failure",
+    "tags": ["env:prod", "service:autopipeline"],
+    "options": {"notify_audit": false, "no_data_timeframe": 10,
+                "include_tags": true}
+  },
+  {
+    "name": "GPT Daily Cost Spike",
+    "type": "metric alert",
+    "query": "avg(last_1d):sum:gpt.usage.cost{env:prod} > 5",
+    "message": "@pagerduty GPT cost > 5$ today",
+    "tags": ["env:prod"],
+    "options": {"include_tags": true}
+  },
+  {
+    "name": "Twitter API Error Rate",
+    "type": "metric alert",
+    "query": "100 * sum(last_5m):sum:twitter.api.error{*} / sum(last_5m):sum:twitter.api.count{*} > 2",
+    "message": "{{#is_alert}}@slack-your-channel{{/is_alert}} Twitter error rate > 2%",
+    "tags": ["service:twitter"],
+    "options": {"include_tags": true}
+  }
+]
