@@ -1,0 +1,22 @@
+name: Deploy Prod
+
+on:
+  workflow_run:
+    workflows: ["Docker Publish"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  k8s-rollout:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/setup-kubectl@v3
+        with:
+          version: v1.30.0
+      - name: Set context
+        run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig && export KUBECONFIG=kubeconfig
+      - name: Rollout deployment
+        run: |
+          kubectl set image deployment/autopipeline autopipeline=ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_branch }} && \
+          kubectl rollout status deployment/autopipeline
