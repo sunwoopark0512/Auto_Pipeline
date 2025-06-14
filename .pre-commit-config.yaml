@@ -1,0 +1,35 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        args: ["--line-length=100"]
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black", "--line-length=100"]
+  - repo: https://github.com/pycqa/pylint
+    rev: v3.2.2
+    hooks:
+      - id: pylint
+        additional_dependencies:
+          ["pylint", "aiohttp", "aiolimiter", "tenacity", "pytrends", "openai", "python-dotenv"]
+        args: ["--fail-under", "6.0"]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        args: ["--config-file", "mypy.ini"]
+  - repo: local
+    hooks:
+      - id: pytest-coverage
+        name: pytest coverage
+        entry: python -m coverage run -m pytest --quiet
+        language: system
+        pass_filenames: false
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks
+        args: ["detect", "--source=.", "--redact"]
