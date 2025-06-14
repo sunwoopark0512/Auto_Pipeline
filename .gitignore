@@ -1,2 +1,5 @@
 .env
 logs/
+wheels/
+*.whl
+__pycache__/
