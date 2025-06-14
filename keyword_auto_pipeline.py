@@ -17,6 +17,7 @@ GOOGLE_TRENDS_MIN_GROWTH = 1.3
 TWITTER_MIN_MENTIONS = 30
 TWITTER_MIN_TOP_RETWEET = 50
 MIN_CPC = 1000  # 원 (더미 기준)
+TOP_RESULTS_LIMIT = int(os.getenv("TOP_RESULTS_LIMIT", "50"))
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
@@ -127,6 +128,19 @@ def filter_keywords(entries):
     logging.info(f"필터링된 키워드 개수: {len(filtered)}")
     return filtered
 
+# ---------------------- 최고 CPC 선택 함수 ----------------------
+def select_top_keywords(entries, top_n=TOP_RESULTS_LIMIT):
+    unique = {}
+    for item in entries:
+        kw = item.get("keyword")
+        cpc = item.get("cpc", 0)
+        if kw and (kw not in unique or cpc > unique[kw].get("cpc", 0)):
+            unique[kw] = item
+    sorted_items = sorted(unique.values(), key=lambda x: x.get("cpc", 0), reverse=True)
+    result = sorted_items[:top_n]
+    logging.info(f"상위 {len(result)}개 키워드 선택")
+    return result
+
 # ---------------------- 키워드별 수집 작업 ----------------------
 def collect_data_for_keyword(keyword, pytrends):
     results = []
@@ -164,9 +178,10 @@ def run_pipeline():
                 logging.error(f"{kw} 처리 중 에러: {e}")
 
     filtered = filter_keywords(all_results)
+    top_keywords = select_top_keywords(filtered, TOP_RESULTS_LIMIT)
     result = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
-        "filtered_keywords": filtered
+        "filtered_keywords": top_keywords
     }
 
     try:
