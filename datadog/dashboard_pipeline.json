@@ -1,0 +1,83 @@
+{
+  "title": "Auto_Pipeline Overview",
+  "widgets": [
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Pipeline Run Success / Fail",
+        "requests": [
+          {
+            "q": "sum:pipeline.run{status:success} by {env}",
+            "display_type": "line",
+            "style": {"palette": "cool"}
+          },
+          {
+            "q": "sum:pipeline.run{status:fail} by {env}",
+            "display_type": "line",
+            "style": {"palette": "warm"}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 0, "w": 47, "h": 15}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "GPT Cost (USD)",
+        "requests": [
+          {
+            "q": "avg:gpt.usage.cost{*} by {env}",
+            "aggregator": "sum",
+            "display_type": "area"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 16, "w": 23, "h": 15}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Notion Latency (ms)",
+        "requests": [
+          {
+            "q": "avg:notion.request.latency{*}.rollup(avg, 60)",
+            "display_type": "line"
+          }
+        ]
+      },
+      "layout": {"x": 24, "y": 16, "w": 23, "h": 15}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Twitter Fetch Duration (s)",
+        "requests": [
+          {
+            "q": "avg:twitter.fetch.time{*}.rollup(avg,60)",
+            "display_type": "line"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 32, "w": 47, "h": 15}
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "HTTP 5xx Rate (%)",
+        "requests": [
+          {
+            "q": "100 * sum:service.http.errors{status:5xx} / sum:service.http.requests{*}",
+            "display_type": "line"
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 48, "w": 47, "h": 15}
+    }
+  ],
+  "template_variables": [
+    {"name": "env", "prefix": "env", "default": "prod"}
+  ],
+  "notify_list": ["slack-channel"],
+  "layout_type": "ordered",
+  "description": "Auto_Pipeline key metrics dashboard"
+}
