@@ -6,6 +6,8 @@ from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
+import asyncio
+from scripts.utils_rate import twitter_rate_limited
 import random  # CPC 더미 데이터용
 
 # ---------------------- 설정 ----------------------
@@ -39,7 +41,10 @@ TOPIC_DETAILS = {
 }
 
 # ---------------------- 키워드 쌍 생성 ----------------------
-def generate_keyword_pairs(topic_details):
+from typing import Any, Dict, List, Coroutine, cast
+
+
+def generate_keyword_pairs(topic_details: Dict[str, List[str]]) -> List[str]:
     pairs = []
     for topic, subs in topic_details.items():
         for sub in subs:
@@ -49,14 +54,14 @@ def generate_keyword_pairs(topic_details):
 # ---------------------- CPC 캐시 ----------------------
 cpc_cache = {}
 
-def fetch_cpc_dummy(keyword):
+def fetch_cpc_dummy(keyword: str) -> int:
     if keyword not in cpc_cache:
         cpc_cache[keyword] = random.randint(500, 2000)
         logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
     return cpc_cache[keyword]
 
 # ---------------------- 데이터 수집 함수 ----------------------
-def fetch_google_trends(keyword, pytrends):
+def fetch_google_trends(keyword: str, pytrends: TrendReq) -> Dict[str, Any] | None:
     try:
         pytrends.build_payload([keyword], cat=0, timeframe='now 7-d', geo='KR')
         data = pytrends.interest_over_time()
@@ -81,10 +86,17 @@ def fetch_google_trends(keyword, pytrends):
         logging.error(f"Google Trends 에러 '{keyword}': {e}")
         return None
 
-def fetch_twitter_metrics(keyword, max_tweets=100):
+@twitter_rate_limited
+async def fetch_twitter_metrics(keyword: str, max_tweets: int = 100) -> Dict[str, Any] | None:
     try:
-        tweets_iter = sntwitter.TwitterSearchScraper(f'#{keyword} lang:ko').get_items()
-        tweets = list(islice(tweets_iter, max_tweets))
+        tweets = await asyncio.to_thread(
+            lambda: list(
+                islice(
+                    sntwitter.TwitterSearchScraper(f"#{keyword} lang:ko").get_items(),
+                    max_tweets,
+                )
+            )
+        )
         if not tweets:
             logging.warning(f"Twitter: '{keyword}' 트윗 없음")
             return None
@@ -106,7 +118,7 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
         return None
 
 # ---------------------- 필터링 함수 ----------------------
-def filter_keywords(entries):
+def filter_keywords(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     filtered = []
     for item in entries:
         source = item.get("source", "")
@@ -128,7 +140,7 @@ def filter_keywords(entries):
     return filtered
 
 # ---------------------- 키워드별 수집 작업 ----------------------
-def collect_data_for_keyword(keyword, pytrends):
+def collect_data_for_keyword(keyword: str, pytrends: TrendReq) -> List[Dict[str, Any]]:
     results = []
     try:
         gtrend = fetch_google_trends(keyword, pytrends)
@@ -138,7 +150,8 @@ def collect_data_for_keyword(keyword, pytrends):
         logging.error(f"Google Trends 처리 실패: {keyword} - {e}")
 
     try:
-        twitter = fetch_twitter_metrics(keyword)
+        twitter_coroutine = cast(Coroutine[Any, Any, Dict[str, Any] | None], fetch_twitter_metrics(keyword))
+        twitter: Dict[str, Any] | None = asyncio.run(twitter_coroutine)
         if twitter:
             results.append(twitter)
     except Exception as e:
@@ -147,7 +160,7 @@ def collect_data_for_keyword(keyword, pytrends):
     return results
 
 # ---------------------- 메인 파이프라인 ----------------------
-def run_pipeline():
+def run_pipeline() -> None:
     keywords = generate_keyword_pairs(TOPIC_DETAILS)
     pytrends = TrendReq(hl='ko', tz=540)
     all_results = []
