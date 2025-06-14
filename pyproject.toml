@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel", "build"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto_pipeline"
+version = "0.1.0"
+description = "Fully automated content pipeline"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = ["Programming Language :: Python :: 3"]
+dependencies = [
+  "requests>=2.32",
+  "rich>=13.7",
+]
+
+[project.scripts]
+run-pipeline = "run_pipeline:main"
