@@ -5,12 +5,13 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from config import FAILED_PATH
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
-FAILED_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_keywords.json")
+# FAILED_PATH provided by config
 RETRY_DELAY = float(os.getenv("RETRY_DELAY", "0.5"))
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
