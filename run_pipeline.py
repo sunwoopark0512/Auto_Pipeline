@@ -1,14 +1,16 @@
-import logging
-import subprocess
+"""Pipeline runner script for orchestrating all steps."""
+
+import argparse
+import importlib
 import sys
-import os
 from datetime import datetime
+from pathlib import Path
+from typing import Any, List, Set
+
+from scripts.logger import setup_logger
 
 # ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s:%(message)s'
-)
+logger = setup_logger(__name__)  # JSON logger
 
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
 PIPELINE_SEQUENCE = [
@@ -16,46 +18,105 @@ PIPELINE_SEQUENCE = [
     "parse_failed_gpt.py",
     "retry_failed_uploads.py",
     "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    "retry_dashboard_notifier.py",
 ]
 
+LOADED_STEPS: Set[str] = set()  # 중복 스크립트 로드 방지
+
+
+# ---------------------- 유틸: 동적 임포트 ----------------------
+def _dynamic_import(module_name: str) -> Any:
+    """모듈을 동적 임포트한다.
+
+    1) 루트 → 2) scripts/ 순서로 시도하며,
+    두 위치 모두 존재하면 중복 오류를 기록한다.
+    """
+    root_path = Path(f"{module_name}")
+    scripts_path = Path("scripts") / module_name
+
+    duplicates = [p for p in (root_path, scripts_path) if p.exists()]
+    if len(duplicates) > 1:
+        logger.error(
+            "duplicate_module",
+            extra={"step": module_name, "paths": [str(p) for p in duplicates]},
+        )
+        raise ImportError(f"Duplicate module found: {duplicates}")
+
+    try:
+        mod_name = module_name.removesuffix(".py")
+        return importlib.import_module(mod_name)
+    except ImportError:
+        return importlib.import_module(f"scripts.{module_name.removesuffix('.py')}")
+
+
 # ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
-        return False
+def run_script(script: str) -> bool:
+    """Import and execute a pipeline step."""
 
-    logging.info(f"🚀 실행 중: {script}")
-    result = subprocess.run([sys.executable, full_path], capture_output=True, text=True)
-
-    if result.returncode != 0:
-        logging.error(f"❌ 실패: {script}\n{result.stderr}")
-        return False
-    else:
-        logging.info(f"✅ 완료: {script}")
-        if result.stdout.strip():
-            print(result.stdout)
+    if script in LOADED_STEPS:
+        logger.warning("step_already_loaded", extra={"step": script})
         return True
 
-# ---------------------- 전체 파이프라인 실행 ----------------------
-def run_pipeline():
-    logging.info(f"🧩 파이프라인 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    all_passed = True
+    try:
+        module = _dynamic_import(script)
+        LOADED_STEPS.add(script)
+        if hasattr(module, "main"):
+            module.main()
+        else:
+            logger.error("missing_main", extra={"step": script})
+            return False
+    except Exception as err:  # pylint: disable=broad-except
+        logger.error(
+            "step_failed",
+            extra={"step": script, "error": str(err)},
+        )
+        return False
 
-    for script in PIPELINE_SEQUENCE:
+    logger.info("step_completed", extra={"step": script})
+    return True
+
+
+# ---------------------- 전체 파이프라인 실행 ----------------------
+def run_pipeline(dry_run: bool = False, only: List[str] | None = None) -> None:
+    """Run the full pipeline or selected steps."""
+
+    logger.info(
+        "pipeline_start", extra={"time": datetime.now().strftime("%Y-%m-%d %H:%M")}
+    )
+    failed_steps: List[str] = []
+    targets = only or PIPELINE_SEQUENCE
+
+    for script in targets:
+        if dry_run:
+            logger.info("dry_run_step", extra={"step": script})
+            continue
+
         success = run_script(script)
         if not success:
-            all_passed = False
+            failed_steps.append(script)
             # 실패해도 계속 실행할 것인지 중단할 것인지 선택 가능
             # break
 
-    logging.info("🎯 파이프라인 전체 완료")
-    if all_passed:
-        logging.info("✅ 모든 단계 성공적으로 완료")
-    else:
-        logging.warning("⚠️ 일부 단계에서 실패 발생")
+    logger.info("pipeline_end")
+    if failed_steps:
+        logger.warning("⚠️ 일부 단계 실패: %s", failed_steps)
+        sys.exit(1)
+    logger.info("✅ 모든 단계 성공적으로 완료")
+
 
 # ---------------------- 진입점 ----------------------
 if __name__ == "__main__":
-    run_pipeline()
+    parser = argparse.ArgumentParser(description="Run pipeline")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List scripts without executing",
+    )
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        help="Run only specified scripts",
+    )
+    args = parser.parse_args()
+
+    run_pipeline(dry_run=args.dry_run, only=args.only)
