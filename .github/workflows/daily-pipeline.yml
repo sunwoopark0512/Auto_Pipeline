@@ -15,7 +15,7 @@ jobs:
       NOTION_HOOK_DB_ID: ${{ secrets.NOTION_HOOK_DB_ID }}
       NOTION_KPI_DB_ID: ${{ secrets.NOTION_KPI_DB_ID }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      REPARSED_OUTPUT_PATH: logs/failed_keywords_reparsed.json
+      FAILED_HOOK_PATH: logs/failed_keywords.json
 
     steps:
       - name: 📂 Checkout repository
@@ -32,18 +32,18 @@ jobs:
           pip install -r requirements.txt
 
       - name: ▶️ Run full pipeline (single entrypoint)
-        run: python scripts/run_pipeline.py
+        run: python scripts/run_codex_pipeline.py
 
       - name: 📋 Upload failed items (if any)
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: failed-keywords
-          path: logs/failed_keywords_reparsed.json
+          path: logs/failed_keywords.json
 
       - name: ✍️ Append workflow summary
         if: always()
         run: |
           echo "## 🌐 Notion Hook 파이프라인 실행 완료" >> $GITHUB_STEP_SUMMARY
           echo "- 실행 시각: $(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
-          echo "- 실패 항목 JSON: logs/failed_keywords_reparsed.json" >> $GITHUB_STEP_SUMMARY
+          echo "- 실패 항목 JSON: logs/failed_keywords.json" >> $GITHUB_STEP_SUMMARY

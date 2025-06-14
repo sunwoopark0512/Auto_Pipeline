@@ -1,0 +1,16 @@
+name: "Implement stub script"
+description: "Convert placeholder script into production logic"
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: "Current behavior"
+      value: |
+        File is a stub printing {"status":"ok"}.
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected behavior"
+      value: |
+        * Connect to Notion API
+        * Validate response schema ...
