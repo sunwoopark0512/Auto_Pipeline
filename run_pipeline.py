@@ -1,61 +1,98 @@
+"""v-Infinity 콘텐츠 자동화 파이프라인 런너.
+
+지정된 모듈들을 순차적으로 실행하고, 실패 정보를 최종 알림 스텝에 전달한다.
+"""
+
+from __future__ import annotations
+import importlib
+import importlib.util
 import logging
-import subprocess
 import sys
-import os
-from datetime import datetime
-
-# ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s:%(message)s'
-)
-
-# ---------------------- 실행할 스크립트 순서 정의 ----------------------
-PIPELINE_SEQUENCE = [
-    "hook_generator.py",
-    "parse_failed_gpt.py",
-    "retry_failed_uploads.py",
-    "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+from pathlib import Path
+from types import ModuleType
+PIPELINE_ORDER: list[str] = [
+    "hook_generator",
+    "keyword_auto_pipeline",
+    "notion_hook_uploader",
+    "retry_dashboard_notifier",  # 항상 마지막
 ]
 
-# ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
-        return False
+BASE_DIR = Path(__file__).resolve().parent
+LOGGER = logging.getLogger(__name__)
 
-    logging.info(f"🚀 실행 중: {script}")
-    result = subprocess.run([sys.executable, full_path], capture_output=True, text=True)
 
-    if result.returncode != 0:
-        logging.error(f"❌ 실패: {script}\n{result.stderr}")
-        return False
-    else:
-        logging.info(f"✅ 완료: {script}")
-        if result.stdout.strip():
-            print(result.stdout)
-        return True
+def _setup_logging() -> None:
+    """Configure structured logging for ingestion."""
+    handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter(
+        fmt='{"ts":"%(asctime)s","lvl":"%(levelname)s","msg":"%(message)s"}'
+    )
+    handler.setFormatter(formatter)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.addHandler(handler)
 
-# ---------------------- 전체 파이프라인 실행 ----------------------
-def run_pipeline():
-    logging.info(f"🧩 파이프라인 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    all_passed = True
 
-    for script in PIPELINE_SEQUENCE:
-        success = run_script(script)
-        if not success:
-            all_passed = False
-            # 실패해도 계속 실행할 것인지 중단할 것인지 선택 가능
-            # break
+def _dynamic_import(module_name: str) -> ModuleType:
+    """Import a module from the repository by name.
 
-    logging.info("🎯 파이프라인 전체 완료")
-    if all_passed:
-        logging.info("✅ 모든 단계 성공적으로 완료")
-    else:
-        logging.warning("⚠️ 일부 단계에서 실패 발생")
+    Args:
+        module_name: File stem without ``.py``.
 
-# ---------------------- 진입점 ----------------------
+    Returns:
+        Module object.
+
+    Raises:
+        ValueError: If the module file does not exist.
+    """
+    module_path = BASE_DIR / f"{module_name}.py"
+    if not module_path.exists():
+        alt = BASE_DIR / "scripts" / f"{module_name}.py"
+        if alt.exists():
+            module_path = alt
+        else:
+            LOGGER.error(
+                "step_import_fail %s", module_name, extra={"step": module_name, "event": "import_fail"}
+            )
+            raise ValueError(f"Unknown step: {module_name}")
+
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    assert spec and spec.loader
+    spec.loader.exec_module(module)  # type: ignore[call-arg]
+    return module
+
+
+def _run_step(module: ModuleType) -> None:
+    """Run a pipeline step that exposes ``main()``."""
+    if not hasattr(module, "main"):
+        raise AttributeError(f"{module.__name__} has no main()")
+    LOGGER.info("step_start %s", module.__name__, extra={"step": module.__name__, "event": "step_start"})
+    module.main()  # type: ignore[attr-defined]
+    LOGGER.info("step_done %s", module.__name__, extra={"step": module.__name__, "event": "step_done"})
+    sys.modules.pop(module.__name__, None)
+
+
+def main() -> None:
+    """Execute the pipeline in ``PIPELINE_ORDER`` with graceful teardown."""
+    _setup_logging()
+    failures: list[str] = []
+
+    for name in PIPELINE_ORDER[:-1]:
+        try:
+            _run_step(_dynamic_import(name))
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception("step_failed %s", name, extra={"step": name, "event": "step_failed"})
+            failures.append(name)
+
+    notifier = _dynamic_import(PIPELINE_ORDER[-1])
+    notifier.main(failures=failures)  # type: ignore[arg-type]
+    if failures:
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    run_pipeline()
+    try:
+        main()
+    except Exception:  # pylint: disable=broad-except
+        LOGGER.exception("pipeline_crashed", extra={"event": "pipeline_crashed"})
+        sys.exit(1)
