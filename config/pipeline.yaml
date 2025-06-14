@@ -1,0 +1,6 @@
+pipeline_sequence:
+  - hook_generator.py
+  - parse_failed_gpt.py
+  - retry_failed_uploads.py
+  - notify_retry_result.py
+  - retry_dashboard_notifier.py
