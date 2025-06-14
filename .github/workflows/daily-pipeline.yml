@@ -31,8 +31,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: 📏 Lint with flake8
+        run: flake8
+
+      - name: 🔍 Type check with mypy
+        run: mypy .
+
       - name: ▶️ Run full pipeline (single entrypoint)
-        run: python scripts/run_pipeline.py
+        run: python run_pipeline.py
 
       - name: 📋 Upload failed items (if any)
         if: always()

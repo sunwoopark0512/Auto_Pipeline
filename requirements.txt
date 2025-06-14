@@ -1,0 +1,8 @@
+openai
+notion-client
+python-dotenv
+pytrends
+snscrape
+flake8
+mypy
+pytest
