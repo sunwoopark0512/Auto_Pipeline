@@ -1,0 +1,53 @@
+name: Main Pipeline
+
+env:
+  PYTHON_VERSION: "3.12"
+  # ↓ Token only needed for private repos
+  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [prod]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.env }}-${{ hashFiles('requirements.txt', 'scripts/**.py', '*.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.env }}-
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # avoid network-restricted hosts if mirror set
+          # pip config set global.index-url https://pypi.org/simple
+      - name: Pre-commit (lint/format/static)
+        uses: pre-commit/action@v3.0.1
+      - name: Pytest + coverage
+        run: |
+          pytest -q --cov=./ --cov-report=xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+      - name: Datadog metric (fail)
+        if: failure()
+        run: |
+          curl -X POST -H "DD-API-KEY:${{ secrets.DD_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"series":[{"metric":"pipeline.run","points":[['$(date +%s)',0]],"type":"count","tags":["env:${{ matrix.env }}","status:fail"]}]}' \
+            https://api.datadoghq.com/api/v1/series
+        timeout-minutes: 1
