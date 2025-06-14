@@ -1,0 +1,7 @@
+openai>=1.14.0
+python-dotenv>=1.0
+pyyaml>=6.0
+rich>=13.7
+tenacity>=8.2
+pytrends>=4.9
+pytest>=8.2
