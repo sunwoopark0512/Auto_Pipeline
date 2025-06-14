@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{ date }} Trending Hooks</title>
+  <style>
+    body { font-family: Arial, sans-serif; color:#333; }
+    h1 { color:#0077c8; }
+    .keyword { margin-bottom: 18px; }
+    .hook { font-weight:bold; }
+  </style>
+</head>
+<body>
+  <h1>🔥 오늘의 트렌드 키워드 {{ date }}</h1>
+  {% for row in keywords %}
+  <div class="keyword">
+    <h2>#{{ loop.index }} {{ row.keyword }}</h2>
+    {% for line in row.hook_lines %}
+      <p class="hook">{{ line }}</p>
+    {% endfor %}
+    <p><small>Source: {{ row.source }} | Score: {{ row.score }}</small></p>
+  </div>
+  {% endfor %}
+  <hr>
+  <p>Unsubscribe | Contact us</p>
+</body>
+</html>
