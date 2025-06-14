@@ -1,0 +1,28 @@
+name: Build Wheel
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11']
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: '**/requirements*.txt'
+      - name: Install build tool
+        run: pip install --upgrade build twine
+      - name: Build wheel
+        run: python -m build --wheel .
+      - name: Verify wheel
+        run: twine check dist/*.whl
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*.whl
