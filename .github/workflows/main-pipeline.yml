@@ -1,0 +1,38 @@
+name: Main Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [prod]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.env }}-${{ hashFiles('requirements.txt', 'scripts/**.py', '*.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.env }}-
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run pipeline
+        run: python run_pipeline.py
+      - name: Datadog metric (fail)
+        if: failure()
+        run: |
+          curl -X POST -H "DD-API-KEY:${{ secrets.DD_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"series":[{"metric":"pipeline.run","points":[['$(date +%s)',0]],"type":"count","tags":["env:${{ matrix.env }}","status:fail"]}]}' \
+            https://api.datadoghq.com/api/v1/series
+        timeout-minutes: 1
