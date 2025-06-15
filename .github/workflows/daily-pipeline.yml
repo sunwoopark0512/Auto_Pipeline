@@ -32,7 +32,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: ▶️ Run full pipeline (single entrypoint)
-        run: python scripts/run_pipeline.py
+        run: python run_pipeline.py
 
       - name: 📋 Upload failed items (if any)
         if: always()
@@ -46,4 +46,5 @@ jobs:
         run: |
           echo "## 🌐 Notion Hook 파이프라인 실행 완료" >> $GITHUB_STEP_SUMMARY
           echo "- 실행 시각: $(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
-          echo "- 실패 항목 JSON: logs/failed_keywords_reparsed.json" >> $GITHUB_STEP_SUMMARY
+          FAIL_JSON=logs/failed_keywords_reparsed.json
+          echo "- 실패 항목 JSON: ${FAIL_JSON}" >> $GITHUB_STEP_SUMMARY
