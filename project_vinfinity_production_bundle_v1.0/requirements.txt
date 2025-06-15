@@ -1,0 +1,9 @@
+openai
+requests
+notion-client
+schedule
+streamlit
+pytest
+python-dotenv
+psycopg2-binary
+supabase
