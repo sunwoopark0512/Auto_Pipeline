@@ -2,9 +2,11 @@ import os
 import json
 import time
 import logging
+import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from openai import AsyncOpenAI
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -13,6 +15,7 @@ HOOK_OUTPUT_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_HOOK_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_hooks.json")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_DELAY = float(os.getenv("API_DELAY", "1.0"))
+MAX_CONCURRENCY = int(os.getenv("MAX_CONCURRENCY", "5"))
 
 openai.api_key = OPENAI_API_KEY
 
@@ -48,8 +51,60 @@ def get_gpt_response(prompt, retries=3):
             time.sleep(2)
     return None
 
+# ---------------------- 비동기 GPT 호출 함수 ----------------------
+async def get_gpt_response_async(prompt, retries=3, client=None):
+    client = client or AsyncOpenAI(api_key=OPENAI_API_KEY)
+    for attempt in range(retries):
+        try:
+            response = await client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logging.warning(f"GPT 호출 실패 {attempt + 1}/{retries}: {e}")
+            await asyncio.sleep(2)
+    return None
+
 # ---------------------- 메인 실행 함수 ----------------------
-def generate_hooks():
+async def _process_keyword(client, semaphore, item):
+    keyword = item.get('keyword')
+    prompt = generate_hook_prompt(
+        keyword=keyword,
+        topic=keyword.split()[0],
+        source=item.get('source'),
+        score=item.get('score', 0),
+        growth=item.get('growth', 0),
+        mentions=item.get('mentions', 0)
+    )
+    async with semaphore:
+        response = await get_gpt_response_async(prompt, client=client)
+        await asyncio.sleep(API_DELAY)
+
+    result = {
+        "keyword": keyword,
+        "hook_prompt": prompt,
+        "timestamp": datetime.utcnow().isoformat() + 'Z'
+    }
+
+    if response:
+        lines = response.split('\n')
+        result.update({
+            "hook_lines": lines[0:2],
+            "blog_paragraphs": lines[2:5],
+            "video_titles": lines[5:],
+            "generated_text": response
+        })
+        logging.info(f"✅ 생성 완료: {keyword}")
+        return result, True
+    result["generated_text"] = None
+    result["error"] = "GPT 응답 실패"
+    logging.error(f"❌ 생성 실패: {keyword}")
+    return result, False
+
+
+async def generate_hooks_async():
     if not OPENAI_API_KEY:
         logging.error("❗ OpenAI API 키가 누락되었습니다. .env 파일 확인 필요")
         return
@@ -74,7 +129,10 @@ def generate_hooks():
 
     new_output = []
     failed_output = []
-    skipped, success, failed = 0, 0, 0
+    skipped = success = failed = 0
+    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+    tasks = []
 
     for item in keywords:
         keyword = item.get('keyword')
@@ -87,41 +145,17 @@ def generate_hooks():
             skipped += 1
             continue
 
-        prompt = generate_hook_prompt(
-            keyword=keyword,
-            topic=keyword.split()[0],
-            source=item.get('source'),
-            score=item.get('score', 0),
-            growth=item.get('growth', 0),
-            mentions=item.get('mentions', 0)
-        )
-        response = get_gpt_response(prompt)
+        tasks.append(_process_keyword(client, semaphore, item))
 
-        result = {
-            "keyword": keyword,
-            "hook_prompt": prompt,
-            "timestamp": datetime.utcnow().isoformat() + 'Z'
-        }
+    results = await asyncio.gather(*tasks)
 
-        if response:
-            lines = response.split('\n')
-            result.update({
-                "hook_lines": lines[0:2],
-                "blog_paragraphs": lines[2:5],
-                "video_titles": lines[5:],
-                "generated_text": response
-            })
+    for result, ok in results:
+        if ok:
             new_output.append(result)
-            logging.info(f"✅ 생성 완료: {keyword}")
             success += 1
         else:
-            result["generated_text"] = None
-            result["error"] = "GPT 응답 실패"
             failed_output.append(result)
-            logging.error(f"❌ 생성 실패: {keyword}")
             failed += 1
-
-        time.sleep(API_DELAY)
 
     full_output = list(existing.values()) + new_output
     os.makedirs(os.path.dirname(HOOK_OUTPUT_PATH), exist_ok=True)
@@ -137,6 +171,11 @@ def generate_hooks():
     logging.info("📊 생성 작업 요약")
     logging.info(f"총 키워드: {len(keywords)} | 성공: {success} | 중복스킵: {skipped} | 실패: {failed}")
     logging.info(f"🎉 후킹 문장 저장 완료: {HOOK_OUTPUT_PATH}")
+
+
+def generate_hooks():
+    asyncio.run(generate_hooks_async())
+
 
 if __name__ == "__main__":
     generate_hooks()
