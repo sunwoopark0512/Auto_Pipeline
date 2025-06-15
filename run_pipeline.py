@@ -21,9 +21,28 @@ PIPELINE_SEQUENCE = [
 
 # ---------------------- 스크립트 실행 함수 ----------------------
 def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
+    """Locate and execute a pipeline script.
+
+    The repository originally assumed that every step lived inside the
+    ``scripts/`` directory, but several utilities are stored at the
+    repository root.  ``full_path`` now searches both locations to find the
+    actual file to run.
+    """
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+
+    # Look for ``script`` first in the repository root and then in ``scripts/``
+    candidate_paths = [os.path.join(repo_root, script),
+                      os.path.join(repo_root, "scripts", script)]
+
+    full_path = None
+    for path in candidate_paths:
+        if os.path.exists(path):
+            full_path = path
+            break
+
+    if full_path is None:
+        logging.error(
+            f"❌ 파일이 존재하지 않습니다: {script} (searched {candidate_paths})")
         return False
 
     logging.info(f"🚀 실행 중: {script}")
