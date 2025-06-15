@@ -1,0 +1,30 @@
+name: Terraform
+
+on:
+  pull_request:
+    paths: ["infra/**"]
+  push:
+    branches: [main]
+    paths: ["infra/**"]
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_render_api_key: ${{ secrets.RENDER_API_KEY }}
+      TF_VAR_notion_key: ${{ secrets.NOTION_API_SECRET }}
+      TF_VAR_supabase_url: ${{ secrets.SUPABASE_URL }}
+      TF_VAR_supabase_key: ${{ secrets.SUPABASE_KEY }}
+    steps:
+      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v4
+
+      - name: Terraform Init
+        run: terraform -chdir=infra init
+
+      - name: Terraform Plan
+        run: terraform -chdir=infra plan -no-color
+
+      - name: Terraform Apply (main만)
+        if: github.ref == 'refs/heads/main'
+        run: terraform -chdir=infra apply -auto-approve -no-color
