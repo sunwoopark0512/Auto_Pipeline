@@ -1,0 +1,16 @@
+name: OpsGenie Alert
+
+on:
+  workflow_run:
+    workflows: ["CI Tests"]
+    types: [failure]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send OpsGenie
+        run: |
+          curl -X POST https://api.opsgenie.com/v2/alerts             -H "Authorization: GenieKey $OG_KEY"             -H "Content-Type: application/json"             -d '{"message":"CI 실패","description":"${{ github.repository }}","priority":"P3"}'
+        env:
+          OG_KEY: ${{ secrets.OPSGENIE_KEY }}
