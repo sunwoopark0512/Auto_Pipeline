@@ -17,6 +17,7 @@ GOOGLE_TRENDS_MIN_GROWTH = 1.3
 TWITTER_MIN_MENTIONS = 30
 TWITTER_MIN_TOP_RETWEET = 50
 MIN_CPC = 1000  # 원 (더미 기준)
+MAX_WORKERS = int(os.getenv("MAX_WORKERS", "10"))
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
@@ -128,7 +129,8 @@ def filter_keywords(entries):
     return filtered
 
 # ---------------------- 키워드별 수집 작업 ----------------------
-def collect_data_for_keyword(keyword, pytrends):
+def collect_data_for_keyword(keyword):
+    pytrends = TrendReq(hl='ko', tz=540)
     results = []
     try:
         gtrend = fetch_google_trends(keyword, pytrends)
@@ -149,11 +151,10 @@ def collect_data_for_keyword(keyword, pytrends):
 # ---------------------- 메인 파이프라인 ----------------------
 def run_pipeline():
     keywords = generate_keyword_pairs(TOPIC_DETAILS)
-    pytrends = TrendReq(hl='ko', tz=540)
     all_results = []
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(collect_data_for_keyword, kw, pytrends): kw for kw in keywords}
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(collect_data_for_keyword, kw): kw for kw in keywords}
 
         for future in as_completed(futures):
             kw = futures[future]
