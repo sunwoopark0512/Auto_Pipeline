@@ -1,61 +1,65 @@
-import logging
-import subprocess
-import sys
+import argparse
+import importlib
 import os
-from datetime import datetime
+import sys
 
-# ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s:%(message)s'
+import logging
+import structlog
+
+
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    processors=[
+        structlog.processors.TimeStamper(fmt="ISO"),
+        structlog.processors.add_log_level,
+        structlog.processors.format_exc_info,
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.JSONRenderer(),
+    ],
 )
 
-# ---------------------- 실행할 스크립트 순서 정의 ----------------------
+logger = structlog.get_logger()
+
+# Define the order of pipeline modules to execute
 PIPELINE_SEQUENCE = [
-    "hook_generator.py",
-    "parse_failed_gpt.py",
-    "retry_failed_uploads.py",
-    "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    "hook_generator",
+    "retry_failed_uploads",
+    "retry_dashboard_notifier",
 ]
 
-# ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
-        return False
+_loaded_origins: dict[str, str] = {}
 
-    logging.info(f"🚀 실행 중: {script}")
-    result = subprocess.run([sys.executable, full_path], capture_output=True, text=True)
+def _import_and_run(module_name: str):
+    """Import a module and run its main() function if present."""
+    mod = importlib.import_module(module_name)
+    origin = getattr(mod, "__file__", None)
+    if origin:
+        norm = os.path.realpath(origin)
+        for name, seen in _loaded_origins.items():
+            if seen == norm and name != module_name:
+                raise ImportError(f"Module {module_name} duplicates {name}")
+        _loaded_origins[module_name] = norm
+    logger.info("\u2705 Imported %s", module_name)
+    if os.getenv("DRY_RUN"):
+        return
+    if hasattr(mod, "main"):
+        mod.main()
 
-    if result.returncode != 0:
-        logging.error(f"❌ 실패: {script}\n{result.stderr}")
-        return False
-    else:
-        logging.info(f"✅ 완료: {script}")
-        if result.stdout.strip():
-            print(result.stdout)
-        return True
 
-# ---------------------- 전체 파이프라인 실행 ----------------------
-def run_pipeline():
-    logging.info(f"🧩 파이프라인 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    all_passed = True
+def main(args: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dry-run", action="store_true", help="Import modules only")
+    opts = parser.parse_args(args)
 
-    for script in PIPELINE_SEQUENCE:
-        success = run_script(script)
-        if not success:
-            all_passed = False
-            # 실패해도 계속 실행할 것인지 중단할 것인지 선택 가능
-            # break
+    if opts.dry_run:
+        os.environ["DRY_RUN"] = "1"
+        global logger
+        logger = logger.bind(dry=True)
+        logger.info("Import check only – no side-effects")
 
-    logging.info("🎯 파이프라인 전체 완료")
-    if all_passed:
-        logging.info("✅ 모든 단계 성공적으로 완료")
-    else:
-        logging.warning("⚠️ 일부 단계에서 실패 발생")
+    for step in PIPELINE_SEQUENCE:
+        _import_and_run(step)
 
-# ---------------------- 진입점 ----------------------
+
 if __name__ == "__main__":
-    run_pipeline()
+    main()
