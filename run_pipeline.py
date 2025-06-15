@@ -13,30 +13,34 @@ logging.basicConfig(
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
 PIPELINE_SEQUENCE = [
     "hook_generator.py",
-    "parse_failed_gpt.py",
     "retry_failed_uploads.py",
-    "notify_retry_result.py",
     "retry_dashboard_notifier.py"
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
-        return False
+def run_script(script: str) -> bool:
+    """Execute a script found either in the project root or under ``scripts/``."""
+    candidate_paths = [
+        os.path.join("scripts", script),
+        script,
+    ]
 
-    logging.info(f"🚀 실행 중: {script}")
-    result = subprocess.run([sys.executable, full_path], capture_output=True, text=True)
+    for path in candidate_paths:
+        if os.path.exists(path):
+            logging.info(f"🚀 실행 중: {script}")
+            result = subprocess.run([sys.executable, path], capture_output=True, text=True)
 
-    if result.returncode != 0:
-        logging.error(f"❌ 실패: {script}\n{result.stderr}")
-        return False
-    else:
-        logging.info(f"✅ 완료: {script}")
-        if result.stdout.strip():
-            print(result.stdout)
-        return True
+            if result.returncode != 0:
+                logging.error(f"❌ 실패: {script}\n{result.stderr}")
+                return False
+
+            logging.info(f"✅ 완료: {script}")
+            if result.stdout.strip():
+                print(result.stdout)
+            return True
+
+    logging.error(f"❌ 파일이 존재하지 않습니다: {script}")
+    return False
 
 # ---------------------- 전체 파이프라인 실행 ----------------------
 def run_pipeline():
