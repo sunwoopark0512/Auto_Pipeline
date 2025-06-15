@@ -2,7 +2,6 @@ import os
 import json
 import time
 import logging
-import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
@@ -44,15 +43,23 @@ def page_exists(keyword):
 
 # ---------------------- GPT 결과 파싱 함수 ----------------------
 def parse_generated_text(text):
-    hook_lines = re.findall(r"후킹 ?문장[0-9]?[\s:：\-\)]*([^\n]+)", text)
-    blog_match = re.search(r"블로그(?:\s*초안)?[\s:：\-\)]*(.*?)\n+\s*(.*?\n+.*?\n+.*?)(?:\n|$)", text, re.DOTALL)
-    video_titles = re.findall(r"(?:영상 제목|YouTube 제목)[\s:：\-\)]*[^\n]*\n?-\s*(.+)", text)
+    """Parse GPT JSON output and validate required fields."""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        logging.error("❌ JSON 파싱 실패: %s", exc)
+        return {"hook_lines": ["", ""], "blog_paragraphs": ["", "", ""], "video_titles": ["", ""]}
 
-    blog_paragraphs = [p.strip() for p in blog_match[1].strip().split('\n')[:3]] if blog_match else ["", "", ""]
+    required = ["hook_lines", "blog_paragraphs", "video_titles"]
+    for field in required:
+        if field not in data or not isinstance(data[field], list):
+            logging.error("❌ 필드 누락 또는 형식 오류: %s", field)
+            return {"hook_lines": ["", ""], "blog_paragraphs": ["", "", ""], "video_titles": ["", ""]}
+
     return {
-        "hook_lines": hook_lines[:2] if len(hook_lines) >= 2 else ["", ""],
-        "blog_paragraphs": blog_paragraphs,
-        "video_titles": video_titles[:2] if video_titles else ["", ""]
+        "hook_lines": (data["hook_lines"] + ["", ""])[:2],
+        "blog_paragraphs": (data["blog_paragraphs"] + ["", "", ""])[:3],
+        "video_titles": (data["video_titles"] + ["", ""])[:2],
     }
 
 # ---------------------- Notion 페이지 생성 함수 ----------------------
