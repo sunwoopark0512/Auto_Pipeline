@@ -3,6 +3,7 @@ import subprocess
 import sys
 import os
 from datetime import datetime
+from pathlib import Path
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
@@ -20,10 +21,21 @@ PIPELINE_SEQUENCE = [
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
+ROOT_DIR = Path(__file__).parent.resolve()
+SEARCH_DIRS = [ROOT_DIR, ROOT_DIR / "scripts"]
+
+
+def run_script(script: str) -> bool:
+    """Execute a pipeline script regardless of its location."""
+    full_path = None
+    for directory in SEARCH_DIRS:
+        candidate = directory / script
+        if candidate.exists():
+            full_path = candidate
+            break
+
+    if full_path is None:
+        logging.error(f"❌ 파일이 존재하지 않습니다: {script}")
         return False
 
     logging.info(f"🚀 실행 중: {script}")
