@@ -25,7 +25,7 @@ logging.basicConfig(
 )
 
 # ---------------------- 토픽별 세부 키워드 쌍 ----------------------
-TOPIC_DETAILS = {
+DEFAULT_TOPIC_DETAILS = {
     "여행": ["국내여행", "해외여행", "배낭여행"],
     "다이어트": ["간헐적단식", "홈트", "저탄고지"],
     "재테크": ["주식", "부동산", "가상화폐"],
@@ -37,6 +37,27 @@ TOPIC_DETAILS = {
     "자기계발": ["시간관리", "독서법", "습관형성"],
     "육아": ["영유아발달", "육아팁", "교육방법"]
 }
+
+def load_topic_details(config_path, default_details):
+    """Load topic details from config file if available."""
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # If topic_details provided, use it directly
+        if "topic_details" in data:
+            return data["topic_details"]
+        # If only topics list provided, filter default details
+        if "topics" in data:
+            return {t: default_details.get(t, []) for t in data["topics"]}
+    except FileNotFoundError:
+        logging.warning(f"Config file not found: {config_path}. Using default TOPIC_DETAILS.")
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse config file: {e}. Using default TOPIC_DETAILS.")
+    except Exception as e:
+        logging.error(f"Unexpected error reading config: {e}. Using default TOPIC_DETAILS.")
+    return default_details
+
+TOPIC_DETAILS = load_topic_details(CONFIG_PATH, DEFAULT_TOPIC_DETAILS)
 
 # ---------------------- 키워드 쌍 생성 ----------------------
 def generate_keyword_pairs(topic_details):
