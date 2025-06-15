@@ -17,6 +17,7 @@ API_DELAY = float(os.getenv("API_DELAY", "1.0"))
 openai.api_key = OPENAI_API_KEY
 
 # ---------------------- 로깅 설정 ----------------------
+os.makedirs("logs", exist_ok=True)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
