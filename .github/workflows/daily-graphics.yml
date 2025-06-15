@@ -1,0 +1,70 @@
+name: Daily Graphics Generation
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcairo2-dev pkg-config python3-dev
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Generate daily graphics
+      run: |
+        python - <<'PY'
+from pathlib import Path
+from graphic_generator import GraphicGenerator, GraphicConfig
+from datetime import datetime, timezone
+
+output_dir = Path('daily_graphics')
+config = GraphicConfig(
+    width=800,
+    height=400,
+    background_color=(0.95, 0.95, 0.95),
+    line_color=(0.2, 0.4, 0.8),
+    line_width=2.0,
+    font_size=16.0
+)
+
+generator = GraphicGenerator(output_dir)
+now = datetime.now(timezone.utc)
+data = [1.0, 1.5, 2.0, 1.8, 2.2, 2.8, 2.5]
+chart_path = generator.create_chart(data, config, f'Daily Stats - {now.strftime("%Y-%m-%d")}')
+
+badge_config = GraphicConfig(
+    width=200,
+    height=30,
+    background_color=(0.2, 0.6, 0.2),
+    line_color=(1.0, 1.0, 1.0),
+    font_size=14.0
+)
+badge_path = generator.create_badge('Updated Daily', badge_config, style='rounded')
+print('Chart saved to', chart_path)
+print('Badge saved to', badge_path)
+PY
+
+    - name: Upload generated graphics
+      uses: actions/upload-artifact@v4
+      with:
+        name: daily-graphics-${{ github.run_id }}
+        path: daily_graphics/
+        retention-days: 7
