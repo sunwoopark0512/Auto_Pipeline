@@ -1,0 +1,10 @@
+{
+  "name": "iceberg-sink",
+  "connector.class": "org.apache.iceberg.kafka.ConnectSink",
+  "topics": "vinfinity.events",
+  "iceberg.catalog": "aws",
+  "iceberg.table": "vinfinity.event_log",
+  "s3.path": "s3a://vinfinity-lake/",
+  "tasks.max": "4",
+  "exactly.once.support": "required"
+}

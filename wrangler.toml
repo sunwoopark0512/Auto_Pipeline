@@ -1,0 +1,2 @@
+kv_namespaces = [{ binding="KV_CACHE", id="kv_llm_cache" }]
+r2_buckets = [{ binding="R2_BUCKET", bucket_name="vinfinity-cache" }]

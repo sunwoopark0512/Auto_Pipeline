@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: gpu-quota-teamA
+  namespace: team-a
+spec:
+  hard:
+    nvidia.com/gpu: "40"          # 팀당 GPU 최대 40
+---
+apiVersion: scheduling.x-k8s.io/v1
+kind: ElasticQuota
+metadata: { name: team-a-elastic }
+spec:
+  max:
+    nvidia.com/gpu: "40"
+  min:
+    nvidia.com/gpu: "4"
