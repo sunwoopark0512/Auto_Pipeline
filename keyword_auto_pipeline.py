@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from tenacity import retry, stop_after_attempt, wait_fixed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
 import random  # CPC 더미 데이터용
@@ -56,6 +57,7 @@ def fetch_cpc_dummy(keyword):
     return cpc_cache[keyword]
 
 # ---------------------- 데이터 수집 함수 ----------------------
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1), reraise=False)
 def fetch_google_trends(keyword, pytrends):
     try:
         pytrends.build_payload([keyword], cat=0, timeframe='now 7-d', geo='KR')
@@ -81,6 +83,7 @@ def fetch_google_trends(keyword, pytrends):
         logging.error(f"Google Trends 에러 '{keyword}': {e}")
         return None
 
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1), reraise=False)
 def fetch_twitter_metrics(keyword, max_tweets=100):
     try:
         tweets_iter = sntwitter.TwitterSearchScraper(f'#{keyword} lang:ko').get_items()

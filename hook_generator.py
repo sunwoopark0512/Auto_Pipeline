@@ -34,19 +34,23 @@ def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
     return base.strip()
 
 # ---------------------- GPT 호출 함수 (재시도 포함) ----------------------
+from tenacity import Retrying, stop_after_attempt, wait_fixed
+
+
 def get_gpt_response(prompt, retries=3):
-    for attempt in range(retries):
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7
-            )
-            return response.choices[0].message['content']
-        except Exception as e:
-            logging.warning(f"GPT 호출 실패 {attempt + 1}/{retries}: {e}")
-            time.sleep(2)
-    return None
+    r = Retrying(stop=stop_after_attempt(retries), wait=wait_fixed(2), reraise=True)
+    try:
+        for attempt in r:
+            with attempt:
+                response = openai.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7,
+                )
+        return response.choices[0].message["content"]
+    except Exception as e:
+        logging.warning(f"GPT 호출 실패 후 None 반환: {e}")
+        return None
 
 # ---------------------- 메인 실행 함수 ----------------------
 def generate_hooks():
