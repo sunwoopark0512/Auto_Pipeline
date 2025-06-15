@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+from utils import setup_logging
 import re
 from datetime import datetime
 from notion_client import Client
@@ -15,15 +16,8 @@ HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
 
+setup_logging("logs/notion_upload.log")
 notion = Client(auth=NOTION_TOKEN)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s:%(message)s',
-    handlers=[
-        logging.FileHandler("logs/notion_upload.log"),
-        logging.StreamHandler()
-    ]
-)
 
 # ---------------------- 유틸: Notion rich_text 제한 처리 ----------------------
 def truncate_text(text, max_length=2000):
