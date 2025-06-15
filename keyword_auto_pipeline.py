@@ -12,11 +12,11 @@ import random  # CPC 더미 데이터용
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
 OUTPUT_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
 
-GOOGLE_TRENDS_MIN_SCORE = 60
-GOOGLE_TRENDS_MIN_GROWTH = 1.3
-TWITTER_MIN_MENTIONS = 30
-TWITTER_MIN_TOP_RETWEET = 50
-MIN_CPC = 1000  # 원 (더미 기준)
+GOOGLE_TRENDS_MIN_SCORE = int(os.getenv("GOOGLE_TRENDS_MIN_SCORE", "60"))
+GOOGLE_TRENDS_MIN_GROWTH = float(os.getenv("GOOGLE_TRENDS_MIN_GROWTH", "1.3"))
+TWITTER_MIN_MENTIONS = int(os.getenv("TWITTER_MIN_MENTIONS", "30"))
+TWITTER_MIN_TOP_RETWEET = int(os.getenv("TWITTER_MIN_TOP_RETWEET", "50"))
+MIN_CPC = int(os.getenv("MIN_CPC", "1000"))  # 원 (더미 기준)
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
