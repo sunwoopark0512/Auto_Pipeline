@@ -1,0 +1,154 @@
+{
+  "function_summaries": {
+    "keyword_auto_pipeline.generate_keyword_pairs": "Create combinations of main topics and their subtopics.",
+    "keyword_auto_pipeline.fetch_cpc_dummy": "Return cached or random cost-per-click value for a keyword.",
+    "keyword_auto_pipeline.fetch_google_trends": "Retrieve trend data via Pytrends and calculate recent averages.",
+    "keyword_auto_pipeline.fetch_twitter_metrics": "Gather tweet counts and top retweet values using snscrape.",
+    "keyword_auto_pipeline.filter_keywords": "Filter entries based on predefined thresholds and CPC.",
+    "keyword_auto_pipeline.collect_data_for_keyword": "Fetch both Google Trends and Twitter metrics for a keyword.",
+    "keyword_auto_pipeline.run_pipeline": "Orchestrate data collection, filtering and saving of results.",
+    "hook_generator.generate_hook_prompt": "Build the Korean prompt text for GPT based on metrics.",
+    "hook_generator.get_gpt_response": "Call OpenAI ChatCompletion with retry logic.",
+    "hook_generator.generate_hooks": "Load filtered keywords and create hook suggestions using GPT.",
+    "notion_hook_uploader.truncate_text": "Trim text to fit Notion rich text limits.",
+    "notion_hook_uploader.page_exists": "Check if a keyword already exists in the Notion database.",
+    "notion_hook_uploader.parse_generated_text": "Extract hook lines, blog paragraphs and video titles from GPT output.",
+    "notion_hook_uploader.create_notion_page": "Create a Notion page using parsed hook content.",
+    "notion_hook_uploader.upload_all_hooks": "Upload all generated hooks to Notion with retry and logging.",
+    "retry_dashboard_notifier.get_retry_stats": "Summarize retry results from a JSON log file.",
+    "retry_dashboard_notifier.push_kpi_to_notion": "Insert KPI statistics into the Notion dashboard.",
+    "retry_failed_uploads.truncate_text": "Ensure text strings stay under Notion limits.",
+    "retry_failed_uploads.load_failed_items": "Load items that failed to upload from disk.",
+    "retry_failed_uploads.create_retry_page": "Recreate a Notion page for a failed keyword entry.",
+    "retry_failed_uploads.retry_failed_uploads": "Attempt uploading previously failed items and update log.",
+    "run_pipeline.run_script": "Execute one script from the pipeline sequence and log outcome.",
+    "run_pipeline.run_pipeline": "Run multiple scripts in order and report overall status.",
+    "scripts.notion_uploader.page_exists": "Query Notion for an existing keyword entry, with caching.",
+    "scripts.notion_uploader.create_notion_page": "Upload keyword metrics as a Notion database page.",
+    "scripts.notion_uploader.upload_all_keywords": "Process keyword list and upload each entry with retries.",
+    "scripts.retry_failed_uploads.truncate_text": "Limit rich text length for Notion fields.",
+    "scripts.retry_failed_uploads.load_failed_items": "Read list of failed items from file.",
+    "scripts.retry_failed_uploads.create_retry_page": "Post a previously failed entry to Notion again.",
+    "scripts.retry_failed_uploads.retry_failed_uploads": "Retry uploading all stored failed items."
+  },
+  "parameter_explanations": {
+    "keyword_auto_pipeline.generate_keyword_pairs": {
+      "topic_details": "Dictionary mapping topics to lists of subtopics"
+    },
+    "keyword_auto_pipeline.fetch_cpc_dummy": {
+      "keyword": "Keyword string"
+    },
+    "keyword_auto_pipeline.fetch_google_trends": {
+      "keyword": "Keyword to query",
+      "pytrends": "Initialized TrendReq instance"
+    },
+    "keyword_auto_pipeline.fetch_twitter_metrics": {
+      "keyword": "Hashtag term to search",
+      "max_tweets": "Maximum tweets to scan"
+    },
+    "keyword_auto_pipeline.filter_keywords": {
+      "entries": "List of metric dictionaries"
+    },
+    "keyword_auto_pipeline.collect_data_for_keyword": {
+      "keyword": "Term to collect data for",
+      "pytrends": "TrendReq object used for Google Trends"
+    },
+    "hook_generator.generate_hook_prompt": {
+      "keyword": "Keyword string",
+      "topic": "Main topic name",
+      "source": "Origin of metric data",
+      "score": "Trend score",
+      "growth": "Growth ratio",
+      "mentions": "Tweet mention count"
+    },
+    "hook_generator.get_gpt_response": {
+      "prompt": "Prompt text sent to GPT",
+      "retries": "How many attempts before giving up"
+    },
+    "hook_generator.generate_hooks": {},
+    "notion_hook_uploader.truncate_text": {
+      "text": "Arbitrary string",
+      "max_length": "Maximum allowed characters"
+    },
+    "notion_hook_uploader.page_exists": {
+      "keyword": "Keyword to check"
+    },
+    "notion_hook_uploader.parse_generated_text": {
+      "text": "Raw GPT output"
+    },
+    "notion_hook_uploader.create_notion_page": {
+      "item": "Dictionary containing generated content"
+    },
+    "notion_hook_uploader.upload_all_hooks": {},
+    "retry_dashboard_notifier.push_kpi_to_notion": {
+      "kpi": "Dictionary returned from get_retry_stats"
+    },
+    "retry_failed_uploads.truncate_text": {
+      "text": "String value",
+      "max_length": "Maximum characters"
+    },
+    "retry_failed_uploads.load_failed_items": {},
+    "retry_failed_uploads.create_retry_page": {
+      "item": "Failed upload dictionary"
+    },
+    "retry_failed_uploads.retry_failed_uploads": {},
+    "run_pipeline.run_script": {
+      "script": "Filename of the script to execute"
+    },
+    "run_pipeline.run_pipeline": {},
+    "scripts.notion_uploader.create_notion_page": {
+      "item": "Keyword metric dictionary"
+    },
+    "scripts.notion_uploader.upload_all_keywords": {},
+    "scripts.retry_failed_uploads.create_retry_page": {
+      "item": "Dictionary for a failed entry"
+    },
+    "scripts.retry_failed_uploads.retry_failed_uploads": {}
+  },
+  "return_values": {
+    "keyword_auto_pipeline.generate_keyword_pairs": "List of combined keyword strings",
+    "keyword_auto_pipeline.fetch_cpc_dummy": "Integer CPC value",
+    "keyword_auto_pipeline.fetch_google_trends": "Dictionary with trend metrics or None",
+    "keyword_auto_pipeline.fetch_twitter_metrics": "Dictionary with tweet metrics or None",
+    "keyword_auto_pipeline.filter_keywords": "List of entries that meet criteria",
+    "keyword_auto_pipeline.collect_data_for_keyword": "List containing results from each data source",
+    "keyword_auto_pipeline.run_pipeline": "None",
+    "hook_generator.generate_hook_prompt": "Formatted prompt string",
+    "hook_generator.get_gpt_response": "Generated text or None",
+    "hook_generator.generate_hooks": "None",
+    "notion_hook_uploader.truncate_text": "Truncated string",
+    "notion_hook_uploader.page_exists": "Boolean",
+    "notion_hook_uploader.parse_generated_text": "Dictionary with parsed fields",
+    "notion_hook_uploader.create_notion_page": "None",
+    "notion_hook_uploader.upload_all_hooks": "None",
+    "retry_dashboard_notifier.get_retry_stats": "Dictionary with KPI values or None",
+    "retry_dashboard_notifier.push_kpi_to_notion": "None",
+    "retry_failed_uploads.truncate_text": "Truncated string",
+    "retry_failed_uploads.load_failed_items": "List of dictionaries",
+    "retry_failed_uploads.create_retry_page": "None",
+    "retry_failed_uploads.retry_failed_uploads": "None",
+    "run_pipeline.run_script": "True if success else False",
+    "run_pipeline.run_pipeline": "None",
+    "scripts.notion_uploader.page_exists": "Boolean",
+    "scripts.notion_uploader.create_notion_page": "None",
+    "scripts.notion_uploader.upload_all_keywords": "None",
+    "scripts.retry_failed_uploads.truncate_text": "Truncated string",
+    "scripts.retry_failed_uploads.load_failed_items": "List of dictionaries",
+    "scripts.retry_failed_uploads.create_retry_page": "None",
+    "scripts.retry_failed_uploads.retry_failed_uploads": "None"
+  },
+  "usage_examples": {
+    "keyword_auto_pipeline.run_pipeline": "python keyword_auto_pipeline.py",
+    "hook_generator.generate_hooks": "python hook_generator.py",
+    "notion_hook_uploader.upload_all_hooks": "python notion_hook_uploader.py",
+    "retry_failed_uploads.retry_failed_uploads": "python retry_failed_uploads.py",
+    "run_pipeline.run_pipeline": "python run_pipeline.py"
+  },
+  "dependencies": [
+    "pytrends",
+    "snscrape",
+    "openai",
+    "notion_client",
+    "python-dotenv"
+  ]
+}
