@@ -15,7 +15,7 @@ jobs:
       NOTION_HOOK_DB_ID: ${{ secrets.NOTION_HOOK_DB_ID }}
       NOTION_KPI_DB_ID: ${{ secrets.NOTION_KPI_DB_ID }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      REPARSED_OUTPUT_PATH: logs/failed_keywords_reparsed.json
+      RETRY_ITEMS_PATH: logs/failed_keywords_reparsed.json
 
     steps:
       - name: 📂 Checkout repository

@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
-FAILED_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_keywords.json")
+RETRY_ITEMS_PATH = os.getenv("RETRY_ITEMS_PATH", "logs/failed_keywords.json")
 RETRY_DELAY = float(os.getenv("RETRY_DELAY", "0.5"))
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
@@ -27,10 +27,10 @@ def truncate_text(text, max_length=2000):
 
 # ---------------------- 실패 키워드 로딩 ----------------------
 def load_failed_items():
-    if not os.path.exists(FAILED_PATH):
-        logging.warning(f"❗ 실패 항목 파일이 존재하지 않습니다: {FAILED_PATH}")
+    if not os.path.exists(RETRY_ITEMS_PATH):
+        logging.warning(f"❗ 실패 항목 파일이 존재하지 않습니다: {RETRY_ITEMS_PATH}")
         return []
-    with open(FAILED_PATH, 'r', encoding='utf-8') as f:
+    with open(RETRY_ITEMS_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 # ---------------------- Notion 페이지 재생성 ----------------------
@@ -88,7 +88,7 @@ def retry_failed_uploads():
 
     # 실패 파일 덮어쓰기
     if still_failed:
-        with open(FAILED_PATH, 'w', encoding='utf-8') as f:
+        with open(RETRY_ITEMS_PATH, 'w', encoding='utf-8') as f:
             json.dump(still_failed, f, ensure_ascii=False, indent=2)
         logging.warning(f"🔁 여전히 실패한 항목 {len(still_failed)}개가 남아 있습니다.")
 
