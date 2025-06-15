@@ -1,0 +1,31 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ddtrace requests pytest flake8
+      - name: Lint
+        run: flake8 || true
+      - name: Test
+        run: pytest --cov=.
+      - name: Rotate secrets
+        run: python rotate_secrets.py
+      - name: Build Docker image
+        run: docker build -t auto-pipeline:latest .
+      - name: Smoke test image
+        run: docker run -e DRY_RUN=true auto-pipeline:latest python auto_optimize.py
