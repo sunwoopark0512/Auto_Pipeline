@@ -1,22 +1,34 @@
+"""Keyword collection pipeline."""
+
 import os
 import json
 import logging
 from datetime import datetime
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pytrends.request import TrendReq
-import snscrape.modules.twitter as sntwitter
+from typing import TypedDict, List, Dict
+
+from pytrends.request import TrendReq  # type: ignore
+import snscrape.modules.twitter as sntwitter  # type: ignore
 import random  # CPC 더미 데이터용
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
 OUTPUT_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
+TOP_RESULTS_LIMIT = int(os.getenv("TOP_RESULTS_LIMIT", "20"))
 
 GOOGLE_TRENDS_MIN_SCORE = 60
 GOOGLE_TRENDS_MIN_GROWTH = 1.3
 TWITTER_MIN_MENTIONS = 30
 TWITTER_MIN_TOP_RETWEET = 50
 MIN_CPC = 1000  # 원 (더미 기준)
+
+# ---------------------- 타입 정의 ----------------------
+class Keyword(TypedDict):
+    keyword: str
+    cpc: float
+    search_volume: int
+
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
@@ -40,6 +52,7 @@ TOPIC_DETAILS = {
 
 # ---------------------- 키워드 쌍 생성 ----------------------
 def generate_keyword_pairs(topic_details):
+    """Create keyword-subkeyword pairs."""
     pairs = []
     for topic, subs in topic_details.items():
         for sub in subs:
@@ -50,6 +63,7 @@ def generate_keyword_pairs(topic_details):
 cpc_cache = {}
 
 def fetch_cpc_dummy(keyword):
+    """Return dummy CPC value with caching."""
     if keyword not in cpc_cache:
         cpc_cache[keyword] = random.randint(500, 2000)
         logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
@@ -57,6 +71,7 @@ def fetch_cpc_dummy(keyword):
 
 # ---------------------- 데이터 수집 함수 ----------------------
 def fetch_google_trends(keyword, pytrends):
+    """Collect Google Trends metrics for a keyword."""
     try:
         pytrends.build_payload([keyword], cat=0, timeframe='now 7-d', geo='KR')
         data = pytrends.interest_over_time()
@@ -73,7 +88,8 @@ def fetch_google_trends(keyword, pytrends):
             "source": "GoogleTrends",
             "score": int(recent_avg),
             "growth": growth,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc_dummy(keyword),
+            "search_volume": int(recent_avg),
         }
         logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
         return result
@@ -82,6 +98,7 @@ def fetch_google_trends(keyword, pytrends):
         return None
 
 def fetch_twitter_metrics(keyword, max_tweets=100):
+    """Collect simple Twitter metrics for a keyword."""
     try:
         tweets_iter = sntwitter.TwitterSearchScraper(f'#{keyword} lang:ko').get_items()
         tweets = list(islice(tweets_iter, max_tweets))
@@ -97,7 +114,8 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "source": "Twitter",
             "mentions": mentions,
             "top_retweet": top_retweets[0] if top_retweets else 0,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc_dummy(keyword),
+            "search_volume": mentions,
         }
         logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
         return result
@@ -107,6 +125,7 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
 
 # ---------------------- 필터링 함수 ----------------------
 def filter_keywords(entries):
+    """Filter collected rows based on thresholds."""
     filtered = []
     for item in entries:
         source = item.get("source", "")
@@ -127,8 +146,24 @@ def filter_keywords(entries):
     logging.info(f"필터링된 키워드 개수: {len(filtered)}")
     return filtered
 
+# ---------------------- 상위 키워드 선택 ----------------------
+def select_top_keywords(rows: list[Keyword], limit: int) -> List[Keyword]:
+    """Select top keywords by CPC with deduplication."""
+    best: Dict[str, Keyword] = {}
+    for row in rows:
+        key = row["keyword"]
+        if key not in best or row["cpc"] > best[key]["cpc"]:
+            best[key] = row
+        elif row["cpc"] == best[key]["cpc"] and row["search_volume"] > best[key]["search_volume"]:
+            best[key] = row
+    ranked = sorted(
+        best.values(), key=lambda r: (-r["cpc"], -r["search_volume"])
+    )
+    return ranked[:limit]
+
 # ---------------------- 키워드별 수집 작업 ----------------------
 def collect_data_for_keyword(keyword, pytrends):
+    """Gather data for a single keyword from all sources."""
     results = []
     try:
         gtrend = fetch_google_trends(keyword, pytrends)
@@ -148,6 +183,7 @@ def collect_data_for_keyword(keyword, pytrends):
 
 # ---------------------- 메인 파이프라인 ----------------------
 def run_pipeline():
+    """Execute the full keyword collection pipeline."""
     keywords = generate_keyword_pairs(TOPIC_DETAILS)
     pytrends = TrendReq(hl='ko', tz=540)
     all_results = []
@@ -164,9 +200,13 @@ def run_pipeline():
                 logging.error(f"{kw} 처리 중 에러: {e}")
 
     filtered = filter_keywords(all_results)
+    top_keywords = select_top_keywords(filtered, TOP_RESULTS_LIMIT)
+    logging.info(
+        "상위 키워드 선택: %d/%d", len(top_keywords), len(filtered)
+    )
     result = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
-        "filtered_keywords": filtered
+        "filtered_keywords": top_keywords,
     }
 
     try:
