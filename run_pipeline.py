@@ -20,8 +20,20 @@ PIPELINE_SEQUENCE = [
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
+# 프로젝트 루트 디렉터리
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def run_script(script: str) -> bool:
+    """주어진 스크립트를 실행한다.
+
+    스크립트 경로는 저장소 루트를 기준으로 계산된다. 파이프라인 스크립트가
+    별도의 디렉터리에 위치할 경우, PIPELINE_SEQUENCE 에 상대 경로를 명시할
+    수 있다.
+    """
+
+    full_path = os.path.join(ROOT_DIR, script)
+
     if not os.path.exists(full_path):
         logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
         return False
