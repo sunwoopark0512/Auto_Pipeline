@@ -1,0 +1,17 @@
+apiVersion: iam/v1
+kind: IAMRole
+metadata:
+  name: lambda-execution-role
+spec:
+  policy:
+    statements:
+      - actions:
+          - "s3:GetObject"
+        resources:
+          - "arn:aws:s3:::my-bucket/*"
+        effect: Allow
+      - actions:
+          - "dynamodb:PutItem"
+        resources:
+          - "arn:aws:dynamodb:us-west-2:123456789012:table/my-table"
+        effect: Allow

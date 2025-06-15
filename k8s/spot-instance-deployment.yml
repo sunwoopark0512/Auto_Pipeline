@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spot-instance-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spot-instance
+  template:
+    metadata:
+      labels:
+        app: spot-instance
+    spec:
+      nodeSelector:
+        "kubernetes.io/instance-type": "t3a.medium"
+      containers:
+        - name: nginx
+          image: nginx
+          ports:
+            - containerPort: 80
