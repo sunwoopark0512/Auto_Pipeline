@@ -6,6 +6,8 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from jsonschema import ValidationError, validate
+from schemas import HOOK_OUTPUT_SCHEMA
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -83,8 +85,9 @@ def upload_all_hooks():
     try:
         with open(HOOK_JSON_PATH, 'r', encoding='utf-8') as f:
             hooks = json.load(f)
-    except Exception as e:
-        logging.error(f"❗ 후킹 JSON 파일 읽기 오류: {e}")
+        validate(hooks, HOOK_OUTPUT_SCHEMA)
+    except (json.JSONDecodeError, ValidationError) as e:
+        logging.error(f"❗ 후킹 JSON 검증 실패: {e}")
         return
 
     total, success, skipped, failed = 0, 0, 0, 0

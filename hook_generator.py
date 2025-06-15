@@ -5,6 +5,8 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from jsonschema import ValidationError, validate
+from schemas import KEYWORD_OUTPUT_SCHEMA, HOOK_OUTPUT_SCHEMA
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -57,9 +59,10 @@ def generate_hooks():
     try:
         with open(KEYWORD_JSON_PATH, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            keywords = data.get("filtered_keywords", [])
-    except Exception as e:
-        logging.error(f"❗ 키워드 파일 읽기 오류: {e}")
+        validate(data, KEYWORD_OUTPUT_SCHEMA)
+        keywords = data.get("filtered_keywords", [])
+    except (json.JSONDecodeError, ValidationError) as e:
+        logging.error(f"❗ 키워드 파일 검증 실패: {e}")
         return
 
     existing = {}
@@ -67,9 +70,10 @@ def generate_hooks():
         try:
             with open(HOOK_OUTPUT_PATH, 'r', encoding='utf-8') as f:
                 existing_data = json.load(f)
-                for entry in existing_data:
-                    existing[entry['keyword']] = entry
-        except Exception as e:
+            validate(existing_data, HOOK_OUTPUT_SCHEMA)
+            for entry in existing_data:
+                existing[entry['keyword']] = entry
+        except (json.JSONDecodeError, ValidationError) as e:
             logging.warning(f"기존 결과 로딩 실패: {e}")
 
     new_output = []
