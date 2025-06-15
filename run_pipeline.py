@@ -13,27 +13,30 @@ logging.basicConfig(
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
 PIPELINE_SEQUENCE = [
     "hook_generator.py",
-    "parse_failed_gpt.py",
+    "notion_hook_uploader.py",
     "retry_failed_uploads.py",
-    "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    "retry_dashboard_notifier.py",
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def run_script(script: str) -> bool:
+    """Run a script located in the repository root."""
+    full_path = os.path.join(BASE_DIR, script)
     if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
+        logging.error("❌ 파일이 존재하지 않습니다: %s", full_path)
         return False
 
-    logging.info(f"🚀 실행 중: {script}")
+    logging.info("🚀 실행 중: %s", script)
     result = subprocess.run([sys.executable, full_path], capture_output=True, text=True)
 
     if result.returncode != 0:
-        logging.error(f"❌ 실패: {script}\n{result.stderr}")
+        logging.error("❌ 실패: %s\n%s", script, result.stderr)
         return False
     else:
-        logging.info(f"✅ 완료: {script}")
+        logging.info("✅ 완료: %s", script)
         if result.stdout.strip():
             print(result.stdout)
         return True
