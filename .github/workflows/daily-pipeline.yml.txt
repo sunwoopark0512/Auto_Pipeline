@@ -7,9 +7,15 @@ on:
 
 jobs:
   run-pipeline:
+    strategy:
+      matrix:
+        env: [dev, qa, staging, prod]
     runs-on: ubuntu-latest
 
     env:
+      APP_ENV: ${{ matrix.env }}
+      TRACE_RATE: ${{ matrix.env == 'prod' && '0.05' || matrix.env == 'staging' && '0.20' || '1.0' }}
+      OPSGENIE_REGION: ${{ matrix.env == 'eu-prod' && 'EU' || 'US' }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
       NOTION_HOOK_DB_ID: ${{ secrets.NOTION_HOOK_DB_ID }}

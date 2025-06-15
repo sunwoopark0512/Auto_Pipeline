@@ -2,6 +2,7 @@ import logging
 import subprocess
 import sys
 import os
+from autopipe import sentry_init  # Sentry initialization
 from datetime import datetime
 
 # ---------------------- 로깅 설정 ----------------------
