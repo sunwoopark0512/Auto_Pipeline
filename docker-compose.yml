@@ -1,0 +1,31 @@
+version: '3.8'
+services:
+  api:
+    build: .
+    command: python pipeline_api.py
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+
+  webhook:
+    build: .
+    command: python webhook_receiver.py
+    ports:
+      - "9000:9000"
+    env_file:
+      - .env
+
+  scheduler:
+    build: .
+    command: python super_scheduler.py
+    env_file:
+      - .env
+    restart: always
+
+  monitor:
+    build: .
+    command: python self_healing_monitor.py
+    env_file:
+      - .env
+    restart: always
