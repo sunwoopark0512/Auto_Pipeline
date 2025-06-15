@@ -5,6 +5,7 @@ import logging
 import re
 from datetime import datetime
 from notion_client import Client
+from utils import retry_with_backoff
 from dotenv import load_dotenv
 
 # ---------------------- 설정 로딩 ----------------------
@@ -31,13 +32,16 @@ def truncate_text(text, max_length=2000):
 
 # ---------------------- 중복 키워드 확인 함수 ----------------------
 def page_exists(keyword):
-    try:
+    def _api_call():
         query = notion.databases.query(
             database_id=NOTION_HOOK_DB_ID,
             filter={"property": "키워드", "title": {"equals": keyword}},
-            page_size=1
+            page_size=1,
         )
         return len(query.get("results", [])) > 0
+
+    try:
+        return retry_with_backoff(_api_call, max_retries=3, base_delay=1, logger=logging)
     except Exception as e:
         logging.warning(f"⚠️ 중복 확인 실패: {keyword} - {e}")
         return False
@@ -61,18 +65,21 @@ def create_notion_page(item):
     parsed = parse_generated_text(item.get("generated_text", ""))
     topic = keyword.split()[0] if " " in keyword else keyword
 
-    notion.pages.create(
-        parent={"database_id": NOTION_HOOK_DB_ID},
-        properties={
-            "키워드": {"title": [{"text": {"content": keyword}}]},
-            "채널": {"select": {"name": topic}},
-            "등록일": {"date": {"start": datetime.utcnow().isoformat() + 'Z'}},
-            "후킹문1": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][0])}}]},
-            "후킹문2": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][1])}}]},
-            "블로그초안": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["blog_paragraphs"]))}}]},
-            "영상제목": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["video_titles"]))}}]}
-        }
-    )
+    def _api_call():
+        notion.pages.create(
+            parent={"database_id": NOTION_HOOK_DB_ID},
+            properties={
+                "키워드": {"title": [{"text": {"content": keyword}}]},
+                "채널": {"select": {"name": topic}},
+                "등록일": {"date": {"start": datetime.utcnow().isoformat() + 'Z'}},
+                "후킹문1": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][0])}}]},
+                "후킹문2": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][1])}}]},
+                "블로그초안": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["blog_paragraphs"]))}}]},
+                "영상제목": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["video_titles"]))}}]}
+            }
+        )
+
+    retry_with_backoff(_api_call, max_retries=3, base_delay=1, logger=logging)
 
 # ---------------------- 업로드 실행 함수 ----------------------
 def upload_all_hooks():
