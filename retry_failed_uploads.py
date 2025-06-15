@@ -4,21 +4,18 @@ import time
 import logging
 from datetime import datetime
 from notion_client import Client
-from dotenv import load_dotenv
+import config
 
 # ---------------------- 설정 로딩 ----------------------
-load_dotenv()
-NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
-NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
-FAILED_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
-RETRY_DELAY = float(os.getenv("RETRY_DELAY", "0.5"))
+NOTION_TOKEN = config.NOTION_API_TOKEN
+NOTION_HOOK_DB_ID = config.NOTION_HOOK_DB_ID
+FAILED_PATH = config.REPARSED_OUTPUT_PATH
+RETRY_DELAY = config.RETRY_DELAY
+config.require("NOTION_API_TOKEN", "NOTION_HOOK_DB_ID")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
 # ---------------------- Notion 클라이언트 ----------------------
-if not NOTION_TOKEN or not NOTION_HOOK_DB_ID:
-    logging.error("❗ 환경 변수(NOTION_API_TOKEN, NOTION_HOOK_DB_ID)가 누락되었습니다.")
-    exit(1)
 notion = Client(auth=NOTION_TOKEN)
 
 # ---------------------- 유틸: rich_text 길이 제한 ----------------------
