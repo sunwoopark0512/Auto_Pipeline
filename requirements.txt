@@ -1,0 +1,5 @@
+openai==1.86.0
+python-dotenv==1.1.0
+pytrends==4.9.2
+snscrape==0.7.0.20230622
+notion-client==2.3.0
