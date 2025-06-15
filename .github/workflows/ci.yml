@@ -1,0 +1,17 @@
+nightly-publish:
+  runs-on: ubuntu-latest
+  schedule:
+    - cron: "0 5 * * *"   # 매일 05:00 UTC
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+    - run: pip install -r requirements.txt
+    - run: python hook_uploader.py --table content --limit 10
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        YT_CREDENTIALS_FILE: ${{ secrets.YT_CREDENTIALS_FILE }}
+        MEDIUM_TOKEN: ${{ secrets.MEDIUM_TOKEN }}
+        X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
