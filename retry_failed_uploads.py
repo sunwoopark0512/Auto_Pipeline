@@ -4,6 +4,7 @@ import time
 import logging
 from datetime import datetime
 from notion_client import Client
+from retry_helper import call_with_backoff
 from dotenv import load_dotenv
 
 # ---------------------- 설정 로딩 ----------------------
@@ -47,7 +48,8 @@ def create_retry_page(item):
         "video_titles": item.get("video_titles", ["", ""])
     }
 
-    notion.pages.create(
+    _, error = call_with_backoff(
+        notion.pages.create,
         parent={"database_id": NOTION_HOOK_DB_ID},
         properties={
             "키워드": {"title": [{"text": {"content": keyword}}]},
@@ -57,8 +59,10 @@ def create_retry_page(item):
             "후킹문2": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][1])}}]},
             "블로그초안": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["blog_paragraphs"]))}}]},
             "영상제목": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["video_titles"]))}}]}
-        }
+        },
+        logger=logging.getLogger(__name__)
     )
+    return error
 
 # ---------------------- 실행 함수 ----------------------
 def retry_failed_uploads():
@@ -75,13 +79,13 @@ def retry_failed_uploads():
         if not keyword:
             logging.warning("⛔ keyword 누락 항목 건너뜀")
             continue
-        try:
-            create_retry_page(item)
+        error = create_retry_page(item)
+        if not error:
             logging.info(f"✅ 재업로드 성공: {keyword}")
             success += 1
-        except Exception as e:
-            logging.error(f"❌ 재시도 실패: {keyword} - {e}")
-            item["retry_error"] = str(e)
+        else:
+            logging.error(f"❌ 재시도 실패: {keyword} - {error}")
+            item["retry_error"] = error
             still_failed.append(item)
             failed += 1
         time.sleep(RETRY_DELAY)

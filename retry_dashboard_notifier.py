@@ -3,6 +3,7 @@ import json
 import logging
 from datetime import datetime
 from notion_client import Client
+from retry_helper import call_with_backoff
 from dotenv import load_dotenv
 
 # ---------------------- 설정 로딩 ----------------------
@@ -44,20 +45,22 @@ def get_retry_stats():
 
 # ---------------------- Notion KPI 행 추가 ----------------------
 def push_kpi_to_notion(kpi):
-    try:
-        notion.pages.create(
-            parent={"database_id": NOTION_KPI_DB_ID},
-            properties={
-                "날짜": {"date": {"start": kpi["date"].isoformat()}},
-                "전체 시도": {"number": kpi["total"]},
-                "성공": {"number": kpi["success"]},
-                "실패": {"number": kpi["failed"]},
-                "성공률(%)": {"number": kpi["rate"]}
-            }
-        )
+    _, error = call_with_backoff(
+        notion.pages.create,
+        parent={"database_id": NOTION_KPI_DB_ID},
+        properties={
+            "날짜": {"date": {"start": kpi["date"].isoformat()}},
+            "전체 시도": {"number": kpi["total"]},
+            "성공": {"number": kpi["success"]},
+            "실패": {"number": kpi["failed"]},
+            "성공률(%)": {"number": kpi["rate"]}
+        },
+        logger=logging.getLogger(__name__)
+    )
+    if error:
+        logging.error(f"❌ Notion KPI 전송 실패: {error}")
+    else:
         logging.info("📊 Notion KPI 업데이트 완료")
-    except Exception as e:
-        logging.error(f"❌ Notion KPI 전송 실패: {e}")
 
 # ---------------------- 실행 진입점 ----------------------
 if __name__ == "__main__":
