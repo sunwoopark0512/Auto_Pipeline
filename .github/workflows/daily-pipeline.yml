@@ -1,6 +1,7 @@
+---
 name: Daily Notion Hook Pipeline
 
-on:
+'on':
   schedule:
     - cron: '0 0 * * *'  # 매일 오전 9시 (KST 기준)
   workflow_dispatch:
@@ -46,4 +47,4 @@ jobs:
         run: |
           echo "## 🌐 Notion Hook 파이프라인 실행 완료" >> $GITHUB_STEP_SUMMARY
           echo "- 실행 시각: $(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
-          echo "- 실패 항목 JSON: logs/failed_keywords_reparsed.json" >> $GITHUB_STEP_SUMMARY
+          echo "- 실패 항목 JSON: ${REPARSED_OUTPUT_PATH}" >> $GITHUB_STEP_SUMMARY
