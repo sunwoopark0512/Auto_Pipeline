@@ -1,0 +1,23 @@
+name: Codex Branch Cleanup
+on:
+  schedule:
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete stale codex branches
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          api() { curl -s -H 'Authorization: Bearer $GITHUB_TOKEN' -H 'Accept: application/vnd.github+json' "$@"; }
+          OWNER=${{ github.repository_owner }}
+          REPO=${{ github.event.repository.name }}
+          mapfile -t branches < <(api https://api.github.com/repos/$OWNER/$REPO/branches?per_page=100 | jq -r '.[].name' | grep '-codex/')
+          for br in "${branches[@]}"; do
+            pr_state=$(api https://api.github.com/repos/$OWNER/$REPO/pulls?state=all&head=$OWNER:$br | jq -r '.[0].state // empty')
+            last_date=$(api https://api.github.com/repos/$OWNER/$REPO/commits/$br | jq -r '.commit.author.date')
+            [[ "$pr_state" == 'closed' || "$(date -d "$last_date" +%s)" -lt $(date -d '7 days ago' +%s) ]] && api -X DELETE https://api.github.com/repos/$OWNER/$REPO/git/refs/heads/$br
+          done
