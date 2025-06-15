@@ -5,9 +5,11 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from utils.env_validator import require_env_vars, MissingEnvironmentVariableError
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
+require_env_vars(["NOTION_API_TOKEN", "NOTION_DB_ID"])
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_DB_ID = os.getenv("NOTION_DB_ID")
 KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
@@ -66,9 +68,6 @@ def create_notion_page(item):
 
 # ---------------------- 업로드 메인 함수 ----------------------
 def upload_all_keywords():
-    if not NOTION_TOKEN or not NOTION_DB_ID:
-        logging.error("❗ 환경 변수(NOTION_API_TOKEN, NOTION_DB_ID)가 누락되었습니다.")
-        return
 
     try:
         with open(KEYWORD_JSON_PATH, 'r', encoding='utf-8') as f:

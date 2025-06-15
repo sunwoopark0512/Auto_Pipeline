@@ -6,9 +6,11 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from utils.env_validator import require_env_vars, MissingEnvironmentVariableError
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
+require_env_vars(["NOTION_API_TOKEN", "NOTION_HOOK_DB_ID"])
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
@@ -76,9 +78,6 @@ def create_notion_page(item):
 
 # ---------------------- 업로드 실행 함수 ----------------------
 def upload_all_hooks():
-    if not NOTION_TOKEN or not NOTION_HOOK_DB_ID:
-        logging.error("❗ 환경 변수(NOTION_API_TOKEN, NOTION_HOOK_DB_ID)가 누락되었습니다.")
-        return
 
     try:
         with open(HOOK_JSON_PATH, 'r', encoding='utf-8') as f:
