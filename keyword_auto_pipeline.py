@@ -9,7 +9,6 @@ import snscrape.modules.twitter as sntwitter
 import random  # CPC 더미 데이터용
 
 # ---------------------- 설정 ----------------------
-CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
 OUTPUT_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
 
 GOOGLE_TRENDS_MIN_SCORE = 60
