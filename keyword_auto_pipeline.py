@@ -128,7 +128,8 @@ def filter_keywords(entries):
     return filtered
 
 # ---------------------- 키워드별 수집 작업 ----------------------
-def collect_data_for_keyword(keyword, pytrends):
+def collect_data_for_keyword(keyword):
+    pytrends = TrendReq(hl='ko', tz=540)
     results = []
     try:
         gtrend = fetch_google_trends(keyword, pytrends)
@@ -149,11 +150,10 @@ def collect_data_for_keyword(keyword, pytrends):
 # ---------------------- 메인 파이프라인 ----------------------
 def run_pipeline():
     keywords = generate_keyword_pairs(TOPIC_DETAILS)
-    pytrends = TrendReq(hl='ko', tz=540)
     all_results = []
 
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(collect_data_for_keyword, kw, pytrends): kw for kw in keywords}
+        futures = {executor.submit(collect_data_for_keyword, kw): kw for kw in keywords}
 
         for future in as_completed(futures):
             kw = futures[future]
