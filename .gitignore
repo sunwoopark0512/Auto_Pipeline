@@ -1,2 +1,10 @@
 .env
 logs/
+
+# Ignore generated files
+__pycache__/
+*.pyc
+*.pyo
+*.log
+logs/
+data/
