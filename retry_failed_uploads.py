@@ -1,3 +1,5 @@
+"""Retry uploading failed hooks to Notion."""
+
 import os
 import json
 import time

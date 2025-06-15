@@ -21,7 +21,18 @@ PIPELINE_SEQUENCE = [
 
 # ---------------------- 스크립트 실행 함수 ----------------------
 def run_script(script):
-    full_path = os.path.join("scripts", script)
+    """Run a script located either in the repository root or in ``scripts/``.
+
+    This allows flexibility in where helper scripts live while maintaining
+    backwards compatibility with older paths.
+    """
+
+    # Prefer scripts in the repository root.
+    if os.path.exists(script):
+        full_path = script
+    else:
+        full_path = os.path.join("scripts", script)
+
     if not os.path.exists(full_path):
         logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
         return False
