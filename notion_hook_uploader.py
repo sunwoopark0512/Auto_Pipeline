@@ -44,16 +44,20 @@ def page_exists(keyword):
 
 # ---------------------- GPT 결과 파싱 함수 ----------------------
 def parse_generated_text(text):
-    hook_lines = re.findall(r"후킹 ?문장[0-9]?[\s:：\-\)]*([^\n]+)", text)
-    blog_match = re.search(r"블로그(?:\s*초안)?[\s:：\-\)]*(.*?)\n+\s*(.*?\n+.*?\n+.*?)(?:\n|$)", text, re.DOTALL)
-    video_titles = re.findall(r"(?:영상 제목|YouTube 제목)[\s:：\-\)]*[^\n]*\n?-\s*(.+)", text)
-
-    blog_paragraphs = [p.strip() for p in blog_match[1].strip().split('\n')[:3]] if blog_match else ["", "", ""]
-    return {
-        "hook_lines": hook_lines[:2] if len(hook_lines) >= 2 else ["", ""],
-        "blog_paragraphs": blog_paragraphs,
-        "video_titles": video_titles[:2] if video_titles else ["", ""]
-    }
+    try:
+        data = json.loads(text)
+        return {
+            "hook_lines": data.get("hook_lines", ["", ""])[:2],
+            "blog_paragraphs": data.get("blog_paragraphs", ["", "", ""])[:3],
+            "video_titles": data.get("video_titles", ["", ""])[:2],
+        }
+    except Exception as e:
+        logging.warning(f"JSON 파싱 실패: {e}")
+        return {
+            "hook_lines": ["", ""],
+            "blog_paragraphs": ["", "", ""],
+            "video_titles": ["", ""],
+        }
 
 # ---------------------- Notion 페이지 생성 함수 ----------------------
 def create_notion_page(item):
