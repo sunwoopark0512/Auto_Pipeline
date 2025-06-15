@@ -25,11 +25,9 @@ def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
     주제: {keyword}
     출처: {source}
     트렌드 점수: {score}, 성장률: {growth}, 트윗 수: {mentions}
-    이 정보를 기반으로:
-    - 숏폼 영상의 후킹 문장 2개
-    - 블로그 포스트의 3문단 초안
-    - YouTube 영상 제목 예시 2개
-    를 마케팅적으로 끌리는 문장으로 생성해줘. 말투는 친근하면서도 전문가처럼.
+    이 정보를 기반으로 다음 항목을 마케팅적으로 끌리는 문장으로 생성해줘. 말투는 친근하면서도 전문가처럼.
+    결과는 다른 설명 없이 아래 JSON 형식으로만 답해줘.
+    {{"hook_lines": ["후킹1", "후킹2"], "blog_paragraphs": ["문단1", "문단2", "문단3"], "video_titles": ["제목1", "제목2"]}}
     """
     return base.strip()
 
