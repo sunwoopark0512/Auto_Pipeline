@@ -1,3 +1,4 @@
+from utils.logger import setup_logging
 import logging
 import subprocess
 import sys
@@ -5,10 +6,7 @@ import os
 from datetime import datetime
 
 # ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s:%(message)s'
-)
+setup_logging(__name__)
 
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
 PIPELINE_SEQUENCE = [
