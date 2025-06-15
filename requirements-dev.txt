@@ -1,0 +1,9 @@
+# 테스트 의존성
+pytest>=7.0.0
+pytest-cov>=4.0.0
+mypy>=1.0.0
+pylint>=2.17.0
+types-setuptools
+
+# 프로젝트 의존성
+-r requirements.txt
