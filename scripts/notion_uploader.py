@@ -5,6 +5,8 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from jsonschema import ValidationError, validate
+from schemas import KEYWORD_OUTPUT_SCHEMA
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -73,9 +75,10 @@ def upload_all_keywords():
     try:
         with open(KEYWORD_JSON_PATH, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            keywords = data.get("filtered_keywords", [])
-    except Exception as e:
-        logging.error(f"❗ 키워드 파일 읽기 오류: {e}")
+        validate(data, KEYWORD_OUTPUT_SCHEMA)
+        keywords = data.get("filtered_keywords", [])
+    except (json.JSONDecodeError, ValidationError) as e:
+        logging.error(f"❗ 키워드 파일 검증 실패: {e}")
         return
 
     total = len(keywords)
