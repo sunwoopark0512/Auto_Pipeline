@@ -2,9 +2,15 @@ import os
 import json
 import time
 import logging
+import logging.config
+import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
-import openai
+from openai import AsyncOpenAI
+
+from autopipe.retry import gpt_retry
+from autopipe.cache import KeywordCache
+from autopipe.models import HookItem
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -13,11 +19,16 @@ HOOK_OUTPUT_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_HOOK_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_hooks.json")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_DELAY = float(os.getenv("API_DELAY", "1.0"))
+CACHE_PATH = os.getenv(
+    "GENERATED_CACHE_PATH", "data/generated_keyword_cache.json"
+)
 
-openai.api_key = OPENAI_API_KEY
+client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 # ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+from autopipe.log_conf import LOG_CFG
+
+logging.config.dictConfig(LOG_CFG)
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
 def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
@@ -34,19 +45,14 @@ def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
     return base.strip()
 
 # ---------------------- GPT 호출 함수 (재시도 포함) ----------------------
-def get_gpt_response(prompt, retries=3):
-    for attempt in range(retries):
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7
-            )
-            return response.choices[0].message['content']
-        except Exception as e:
-            logging.warning(f"GPT 호출 실패 {attempt + 1}/{retries}: {e}")
-            time.sleep(2)
-    return None
+@gpt_retry()
+async def aget_gpt_response(prompt: str) -> str:
+    resp = await client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+    )
+    return resp.choices[0].message.content
 
 # ---------------------- 메인 실행 함수 ----------------------
 def generate_hooks():
@@ -72,6 +78,8 @@ def generate_hooks():
         except Exception as e:
             logging.warning(f"기존 결과 로딩 실패: {e}")
 
+    cache = KeywordCache(CACHE_PATH)
+
     new_output = []
     failed_output = []
     skipped, success, failed = 0, 0, 0
@@ -82,7 +90,7 @@ def generate_hooks():
             logging.warning("⛔ 빈 키워드 항목, 건너뜁니다.")
             continue
 
-        if keyword in existing:
+        if keyword in existing or cache.exists(keyword):
             logging.info(f"⏭️ 중복 스킵: {keyword}")
             skipped += 1
             continue
@@ -95,7 +103,7 @@ def generate_hooks():
             growth=item.get('growth', 0),
             mentions=item.get('mentions', 0)
         )
-        response = get_gpt_response(prompt)
+        response = asyncio.run(aget_gpt_response(prompt))
 
         result = {
             "keyword": keyword,
@@ -104,15 +112,19 @@ def generate_hooks():
         }
 
         if response:
-            lines = response.split('\n')
-            result.update({
-                "hook_lines": lines[0:2],
-                "blog_paragraphs": lines[2:5],
-                "video_titles": lines[5:],
-                "generated_text": response
-            })
+            lines = response.split("\n")
+            result.update(
+                {
+                    "hook_lines": lines[0:2],
+                    "blog_paragraphs": lines[2:5],
+                    "video_titles": lines[5:],
+                    "generated_text": response,
+                }
+            )
+            HookItem(**result)  # validation
             new_output.append(result)
             logging.info(f"✅ 생성 완료: {keyword}")
+            cache.add(keyword)
             success += 1
         else:
             result["generated_text"] = None
