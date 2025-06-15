@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from autopipe.utils import truncate_text
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -13,6 +14,7 @@ NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
+os.makedirs("logs", exist_ok=True)
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
 
 notion = Client(auth=NOTION_TOKEN)
@@ -25,9 +27,6 @@ logging.basicConfig(
     ]
 )
 
-# ---------------------- 유틸: Notion rich_text 제한 처리 ----------------------
-def truncate_text(text, max_length=2000):
-    return text if len(text) <= max_length else text[:max_length]
 
 # ---------------------- 중복 키워드 확인 함수 ----------------------
 def page_exists(keyword):
@@ -102,17 +101,12 @@ def upload_all_hooks():
             skipped += 1
             continue
 
-        for attempt in range(3):
-            try:
-                create_notion_page(item)
-                logging.info(f"✅ 업로드 완료: {keyword}")
-                success += 1
-                break
-            except Exception as e:
-                logging.warning(f"🔁 재시도 {attempt+1}/3 - {keyword} | 오류: {e}")
-                time.sleep(1)
-        else:
-            logging.error(f"❌ 업로드 실패: {keyword}")
+        try:
+            create_notion_page(item)
+            logging.info(f"✅ 업로드 완료: {keyword}")
+            success += 1
+        except Exception as e:
+            logging.error(f"❌ 업로드 실패: {keyword} - {e}")
             failed_items.append(item)
             failed += 1
 
