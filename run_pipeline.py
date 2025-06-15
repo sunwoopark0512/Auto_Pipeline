@@ -11,19 +11,20 @@ logging.basicConfig(
 )
 
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
+# Updated to only include existing scripts
 PIPELINE_SEQUENCE = [
     "hook_generator.py",
-    "parse_failed_gpt.py",
     "retry_failed_uploads.py",
-    "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    "retry_dashboard_notifier.py",
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
+def run_script(script: str) -> bool:
+    # allow script to live in project root or scripts/ subfolder
+    candidates = [os.path.join("scripts", script), script]
+    full_path = next((p for p in candidates if os.path.exists(p)), None)
+    if full_path is None:
+        logging.error("❌ 파일이 존재하지 않습니다: %s | %s", *candidates)
         return False
 
     logging.info(f"🚀 실행 중: {script}")
