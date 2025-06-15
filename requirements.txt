@@ -1,0 +1,5 @@
+openai
+pytrends
+snscrape
+notion_client
+python-dotenv
