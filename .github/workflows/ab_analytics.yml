@@ -1,0 +1,16 @@
+name: Deploy AB + Analytics Workers
+on:
+  push:
+    paths:
+      - 'ab_test_*'
+      - 'analytics_worker.py'
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Render Deploy
+        uses: render-examples/action-render-deploy@v1
+        with:
+          api-key: ${{ secrets.RENDER_API_KEY }}
+          service-id: ${{ secrets.RENDER_AB_ANALYTICS_ID }}
