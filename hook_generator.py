@@ -5,9 +5,11 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from utils.env_validator import require_env_vars, MissingEnvironmentVariableError
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
+require_env_vars(["OPENAI_API_KEY"])
 KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
 HOOK_OUTPUT_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_HOOK_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_hooks.json")
@@ -50,9 +52,7 @@ def get_gpt_response(prompt, retries=3):
 
 # ---------------------- 메인 실행 함수 ----------------------
 def generate_hooks():
-    if not OPENAI_API_KEY:
-        logging.error("❗ OpenAI API 키가 누락되었습니다. .env 파일 확인 필요")
-        return
+
 
     try:
         with open(KEYWORD_JSON_PATH, 'r', encoding='utf-8') as f:
