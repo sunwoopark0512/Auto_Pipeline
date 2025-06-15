@@ -25,11 +25,13 @@ def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
     주제: {keyword}
     출처: {source}
     트렌드 점수: {score}, 성장률: {growth}, 트윗 수: {mentions}
-    이 정보를 기반으로:
-    - 숏폼 영상의 후킹 문장 2개
-    - 블로그 포스트의 3문단 초안
-    - YouTube 영상 제목 예시 2개
-    를 마케팅적으로 끌리는 문장으로 생성해줘. 말투는 친근하면서도 전문가처럼.
+    이 정보를 기반으로 다음 JSON 형식으로만 응답해줘:
+    {{
+        "hook_lines": ["후킹 문장1", "후킹 문장2"],
+        "blog_paragraphs": ["블로그 문단1", "블로그 문단2", "블로그 문단3"],
+        "video_titles": ["영상 제목1", "영상 제목2"]
+    }}
+    설명이나 다른 문장은 포함하지 말고 반드시 JSON만 반환해.
     """
     return base.strip()
 
@@ -104,11 +106,21 @@ def generate_hooks():
         }
 
         if response:
-            lines = response.split('\n')
+            try:
+                parsed = json.loads(response)
+            except json.JSONDecodeError as e:
+                result["generated_text"] = response
+                result["error"] = f"JSON 파싱 실패: {e}"
+                failed_output.append(result)
+                logging.error(f"❌ JSON 파싱 실패: {keyword}")
+                failed += 1
+                time.sleep(API_DELAY)
+                continue
+
             result.update({
-                "hook_lines": lines[0:2],
-                "blog_paragraphs": lines[2:5],
-                "video_titles": lines[5:],
+                "hook_lines": parsed.get("hook_lines", [])[:2],
+                "blog_paragraphs": parsed.get("blog_paragraphs", [])[:3],
+                "video_titles": parsed.get("video_titles", [])[:2],
                 "generated_text": response
             })
             new_output.append(result)
