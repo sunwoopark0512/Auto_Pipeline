@@ -21,22 +21,31 @@ PIPELINE_SEQUENCE = [
 
 # ---------------------- 스크립트 실행 함수 ----------------------
 def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
+    """Run a pipeline script located either in the repository root or in
+    the ``scripts`` directory.
+    """
+    potential_paths = [script, os.path.join("scripts", script)]
+    full_path = None
+    for path in potential_paths:
+        if os.path.exists(path):
+            full_path = path
+            break
+
+    if full_path is None:
+        logging.error("❌ 파일이 존재하지 않습니다: %s", script)
         return False
 
-    logging.info(f"🚀 실행 중: {script}")
+    logging.info("🚀 실행 중: %s", script)
     result = subprocess.run([sys.executable, full_path], capture_output=True, text=True)
 
     if result.returncode != 0:
-        logging.error(f"❌ 실패: {script}\n{result.stderr}")
+        logging.error("❌ 실패: %s\n%s", script, result.stderr)
         return False
-    else:
-        logging.info(f"✅ 완료: {script}")
-        if result.stdout.strip():
-            print(result.stdout)
-        return True
+
+    logging.info("✅ 완료: %s", script)
+    if result.stdout.strip():
+        print(result.stdout)
+    return True
 
 # ---------------------- 전체 파이프라인 실행 ----------------------
 def run_pipeline():
