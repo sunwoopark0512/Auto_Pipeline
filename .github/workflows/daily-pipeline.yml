@@ -1,3 +1,4 @@
+---
 name: Daily Notion Hook Pipeline
 
 on:
@@ -26,6 +27,14 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: 📦 Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: 🛠️ Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -44,6 +53,8 @@ jobs:
       - name: ✍️ Append workflow summary
         if: always()
         run: |
-          echo "## 🌐 Notion Hook 파이프라인 실행 완료" >> $GITHUB_STEP_SUMMARY
-          echo "- 실행 시각: $(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
-          echo "- 실패 항목 JSON: logs/failed_keywords_reparsed.json" >> $GITHUB_STEP_SUMMARY
+          echo "## 🌐 Notion Hook 파이프라인 실행 완료" >> "$GITHUB_STEP_SUMMARY"
+          DATE_NOW=$(date '+%Y-%m-%d %H:%M:%S')
+          echo "- 실행 시각: $DATE_NOW" >> "$GITHUB_STEP_SUMMARY"
+          FAILED_JSON=logs/failed_keywords_reparsed.json
+          echo "- 실패 항목 JSON: $FAILED_JSON" >> "$GITHUB_STEP_SUMMARY"
