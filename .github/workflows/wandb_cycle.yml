@@ -1,0 +1,14 @@
+name: W&B Finetune Cycle
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  finetune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run scheduler
+        run: |
+          python ml/wandb_schedule.py
