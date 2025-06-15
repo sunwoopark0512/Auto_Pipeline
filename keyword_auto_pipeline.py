@@ -10,7 +10,9 @@ import random  # CPC 더미 데이터용
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
-OUTPUT_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
+OUTPUT_PATH = os.getenv(
+    "KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json"
+)
 
 GOOGLE_TRENDS_MIN_SCORE = 60
 GOOGLE_TRENDS_MIN_GROWTH = 1.3
@@ -24,8 +26,8 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s:%(message)s'
 )
 
-# ---------------------- 토픽별 세부 키워드 쌍 ----------------------
-TOPIC_DETAILS = {
+# ---------------------- 토픽 정보 로딩 ----------------------
+DEFAULT_TOPIC_DETAILS = {
     "여행": ["국내여행", "해외여행", "배낭여행"],
     "다이어트": ["간헐적단식", "홈트", "저탄고지"],
     "재테크": ["주식", "부동산", "가상화폐"],
@@ -35,8 +37,41 @@ TOPIC_DETAILS = {
     "취업": ["이력서작성", "면접팁", "직무역량"],
     "연애": ["소개팅", "데이트코스", "연애심리"],
     "자기계발": ["시간관리", "독서법", "습관형성"],
-    "육아": ["영유아발달", "육아팁", "교육방법"]
+    "육아": ["영유아발달", "육아팁", "교육방법"],
 }
+
+
+def load_topic_details(path: str) -> dict:
+    """Load topic details from a JSON file.
+
+    The config file can either contain a mapping of topics to a list of
+    sub-topics or a list under the key ``topics``. In the latter case each
+    topic will have an empty sub-topic list.
+    """
+
+    try:
+        with open(path, "r", encoding="utf-8") as config_file:
+            data = json.load(config_file)
+
+        if isinstance(data, dict):
+            if isinstance(data.get("topics"), dict):
+                return data["topics"]
+            if isinstance(data.get("topics"), list):
+                return {topic: [] for topic in data["topics"]}
+            return {
+                topic: subs
+                for topic, subs in data.items()
+                if isinstance(subs, list)
+            }
+    except FileNotFoundError:
+        logging.warning("Config file not found: %s", path)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logging.warning("Failed to load config %s: %s", path, exc)
+
+    return DEFAULT_TOPIC_DETAILS
+
+
+TOPIC_DETAILS = load_topic_details(CONFIG_PATH)
 
 # ---------------------- 키워드 쌍 생성 ----------------------
 def generate_keyword_pairs(topic_details):
