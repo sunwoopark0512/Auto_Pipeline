@@ -1,0 +1,58 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Python 설정
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+    
+    - name: 의존성 설치
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov black isort pylint
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+
+    - name: 코드 포맷팅 검사
+      run: |
+        black --check .
+        isort --check-only --diff .
+
+    - name: Lint 검사
+      run: |
+        pylint --recursive=y .
+
+    - name: 테스트 실행
+      run: |
+        PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=xml
+
+    - name: 테스트 결과 업로드
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: |
+          ./coverage.xml
+          .pytest_cache
+        retention-days: 14
