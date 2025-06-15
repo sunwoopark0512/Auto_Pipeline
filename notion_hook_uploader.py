@@ -15,6 +15,8 @@ HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
 
+os.makedirs("logs", exist_ok=True)
+
 notion = Client(auth=NOTION_TOKEN)
 logging.basicConfig(
     level=logging.INFO,
