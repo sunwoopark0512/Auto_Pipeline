@@ -12,7 +12,7 @@ load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
-FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
+FAILED_PATH = os.getenv("FAILED_PATH", "data/upload_failed_hooks.json")
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
 
 notion = Client(auth=NOTION_TOKEN)
@@ -119,10 +119,10 @@ def upload_all_hooks():
         time.sleep(UPLOAD_DELAY)
 
     if failed_items:
-        os.makedirs(os.path.dirname(FAILED_OUTPUT_PATH), exist_ok=True)
-        with open(FAILED_OUTPUT_PATH, 'w', encoding='utf-8') as f:
+        os.makedirs(os.path.dirname(FAILED_PATH), exist_ok=True)
+        with open(FAILED_PATH, 'w', encoding='utf-8') as f:
             json.dump(failed_items, f, ensure_ascii=False, indent=2)
-        logging.info(f"❗ 실패 항목 저장됨: {FAILED_OUTPUT_PATH}")
+        logging.info(f"❗ 실패 항목 저장됨: {FAILED_PATH}")
 
     logging.info("📊 후킹 업로드 요약")
     logging.info(f"총 항목: {total} | 성공: {success} | 중복스킵: {skipped} | 실패: {failed}")
