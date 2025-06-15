@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+from utils.logger import setup_logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
@@ -13,7 +14,7 @@ NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 FAILED_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
 RETRY_DELAY = float(os.getenv("RETRY_DELAY", "0.5"))
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+setup_logging(__name__)
 
 # ---------------------- Notion 클라이언트 ----------------------
 if not NOTION_TOKEN or not NOTION_HOOK_DB_ID:
