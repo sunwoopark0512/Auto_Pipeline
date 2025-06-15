@@ -1,61 +1,95 @@
+"""
+Dynamic pipeline runner with structured JSON logging, fail-fast check,
+and graceful teardown.
+
+CLI:
+    python run_pipeline.py --config pipeline_config
+"""
+
+from __future__ import annotations
+
+import importlib
 import logging
-import subprocess
 import sys
-import os
-from datetime import datetime
+from argparse import ArgumentParser
+from types import ModuleType
+from typing import List, Optional
 
-# ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s:%(message)s'
+from pythonjsonlogger import jsonlogger
+
+_LOG = logging.getLogger("pipeline")
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(
+    jsonlogger.JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s")
 )
+_LOG.addHandler(handler)
+_LOG.setLevel(logging.INFO)
 
-# ---------------------- 실행할 스크립트 순서 정의 ----------------------
-PIPELINE_SEQUENCE = [
-    "hook_generator.py",
-    "parse_failed_gpt.py",
-    "retry_failed_uploads.py",
-    "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
-]
 
-# ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
-        return False
+def _load_config(path: str) -> ModuleType:
+    if path.endswith(".py"):
+        path = path[:-3]
+    return importlib.import_module(path.replace("/", ".").rstrip(".py"))
 
-    logging.info(f"🚀 실행 중: {script}")
-    result = subprocess.run([sys.executable, full_path], capture_output=True, text=True)
 
-    if result.returncode != 0:
-        logging.error(f"❌ 실패: {script}\n{result.stderr}")
-        return False
-    else:
-        logging.info(f"✅ 완료: {script}")
-        if result.stdout.strip():
-            print(result.stdout)
-        return True
+def _validate_steps(cfg: ModuleType):
+    if not hasattr(cfg, "PIPELINE_ORDER") or not isinstance(cfg.PIPELINE_ORDER, list):
+        raise AttributeError("Config must define list `PIPELINE_ORDER`.")
+    for step in cfg.PIPELINE_ORDER:
+        try:
+            importlib.import_module(step)
+        except ModuleNotFoundError as exc:
+            raise ValueError(f"Unknown step: {step}") from exc
 
-# ---------------------- 전체 파이프라인 실행 ----------------------
-def run_pipeline():
-    logging.info(f"🧩 파이프라인 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    all_passed = True
 
-    for script in PIPELINE_SEQUENCE:
-        success = run_script(script)
-        if not success:
-            all_passed = False
-            # 실패해도 계속 실행할 것인지 중단할 것인지 선택 가능
-            # break
+def _run_step(step: str) -> Optional[str]:
+    try:
+        mod = importlib.import_module(step)
+        _LOG.info("step_start", extra={"step": step})
+        if hasattr(mod, "main"):
+            mod.main()
+        else:
+            _LOG.warning("step_no_main", extra={"step": step})
+        _LOG.info("step_success", extra={"step": step})
+        return None
+    except Exception as exc:  # pylint: disable=broad-except
+        _LOG.error("step_fail", extra={"step": step, "error": str(exc)})
+        return step
 
-    logging.info("🎯 파이프라인 전체 완료")
-    if all_passed:
-        logging.info("✅ 모든 단계 성공적으로 완료")
-    else:
-        logging.warning("⚠️ 일부 단계에서 실패 발생")
 
-# ---------------------- 진입점 ----------------------
-if __name__ == "__main__":
-    run_pipeline()
+def _run_notifier(cfg: ModuleType, failures: List[str]):
+    step = getattr(cfg, "NOTIFIER_STEP", None)
+    if not step:
+        return
+    try:
+        mod = importlib.import_module(step)
+        if hasattr(mod, "main"):
+            mod.main(failures)
+            _LOG.info("notifier_success", extra={"step": step, "failures": failures})
+    except Exception as exc:  # pylint: disable=broad-except
+        _LOG.error("notifier_fail", extra={"step": step, "error": str(exc)})
+
+
+def run_pipeline(cfg_path: str) -> int:
+    cfg = _load_config(cfg_path)
+    _validate_steps(cfg)
+
+    failures: List[str] = []
+    for step in cfg.PIPELINE_ORDER:
+        err = _run_step(step)
+        if err:
+            failures.append(err)
+
+    _run_notifier(cfg, failures)
+    return 0 if not failures else 1
+
+
+def _cli():
+    ap = ArgumentParser(description="Run content-automation pipeline")
+    ap.add_argument("--config", default="pipeline_config", help="Config module path")
+    args = ap.parse_args()
+    sys.exit(run_pipeline(args.config))
+
+
+if __name__ == "__main__":  # guard → 임포트 시 부작용 방지
+    _cli()
