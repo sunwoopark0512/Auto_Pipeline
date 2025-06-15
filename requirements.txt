@@ -1,0 +1,12 @@
+# 테스트 의존성
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=23.0.0
+isort>=5.12.0
+pylint>=2.17.0
+
+# 빌드 도구
+build>=1.0.0
+
+# 프로젝트 의존성
+python-dateutil>=2.8.2
