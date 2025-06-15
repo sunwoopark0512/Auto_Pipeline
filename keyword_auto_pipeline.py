@@ -38,6 +38,24 @@ TOPIC_DETAILS = {
     "육아": ["영유아발달", "육아팁", "교육방법"]
 }
 
+# ---------------------- 토픽 설정 로딩 ----------------------
+def load_topics(path):
+    """Load active topics from a JSON configuration file."""
+    if not os.path.exists(path):
+        logging.warning("Config file not found: %s, using default topics", path)
+        return list(TOPIC_DETAILS.keys())
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        topics = data.get("topics", [])
+        if not topics:
+            logging.warning("No topics specified in config, using defaults")
+            return list(TOPIC_DETAILS.keys())
+        return topics
+    except Exception as e:
+        logging.error("Failed to load topic config: %s", e)
+        return list(TOPIC_DETAILS.keys())
+
 # ---------------------- 키워드 쌍 생성 ----------------------
 def generate_keyword_pairs(topic_details):
     pairs = []
@@ -148,7 +166,9 @@ def collect_data_for_keyword(keyword, pytrends):
 
 # ---------------------- 메인 파이프라인 ----------------------
 def run_pipeline():
-    keywords = generate_keyword_pairs(TOPIC_DETAILS)
+    topics = load_topics(CONFIG_PATH)
+    selected_details = {t: TOPIC_DETAILS.get(t, []) for t in topics}
+    keywords = generate_keyword_pairs(selected_details)
     pytrends = TrendReq(hl='ko', tz=540)
     all_results = []
 
