@@ -25,6 +25,25 @@ logging.basicConfig(
     ]
 )
 
+# ---------------------- 재시도 데코레이터 ----------------------
+def retry_with_backoff(retries=3, delay=1, backoff=2):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            current_delay = delay
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == retries - 1:
+                        raise
+                    logging.warning(
+                        f"🔁 재시도 {attempt + 1}/{retries} - {e}"
+                    )
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
+
 # ---------------------- 유틸: Notion rich_text 제한 처리 ----------------------
 def truncate_text(text, max_length=2000):
     return text if len(text) <= max_length else text[:max_length]
@@ -56,6 +75,7 @@ def parse_generated_text(text):
     }
 
 # ---------------------- Notion 페이지 생성 함수 ----------------------
+@retry_with_backoff()
 def create_notion_page(item):
     keyword = item["keyword"]
     parsed = parse_generated_text(item.get("generated_text", ""))
@@ -102,17 +122,12 @@ def upload_all_hooks():
             skipped += 1
             continue
 
-        for attempt in range(3):
-            try:
-                create_notion_page(item)
-                logging.info(f"✅ 업로드 완료: {keyword}")
-                success += 1
-                break
-            except Exception as e:
-                logging.warning(f"🔁 재시도 {attempt+1}/3 - {keyword} | 오류: {e}")
-                time.sleep(1)
-        else:
-            logging.error(f"❌ 업로드 실패: {keyword}")
+        try:
+            create_notion_page(item)
+            logging.info(f"✅ 업로드 완료: {keyword}")
+            success += 1
+        except Exception as e:
+            logging.error(f"❌ 업로드 실패: {keyword} - {e}")
             failed_items.append(item)
             failed += 1
 
