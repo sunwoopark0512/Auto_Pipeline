@@ -75,7 +75,10 @@ def fetch_google_trends(keyword, pytrends):
             "growth": growth,
             "cpc": fetch_cpc_dummy(keyword)
         }
-        logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
+        logging.info(
+            f"Google Trends 수집 완료: {keyword} "
+            f"score={result['score']} growth={result['growth']} cpc={result['cpc']}"
+        )
         return result
     except Exception as e:
         logging.error(f"Google Trends 에러 '{keyword}': {e}")
@@ -99,7 +102,10 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "top_retweet": top_retweets[0] if top_retweets else 0,
             "cpc": fetch_cpc_dummy(keyword)
         }
-        logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
+        logging.info(
+            f"Twitter 수집 완료: {keyword} mentions={mentions} "
+            f"top_retweet={result['top_retweet']} cpc={result['cpc']}"
+        )
         return result
     except Exception as e:
         logging.error(f"Twitter 에러 '{keyword}': {e}")
