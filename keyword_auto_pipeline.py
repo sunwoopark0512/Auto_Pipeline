@@ -24,26 +24,40 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s:%(message)s'
 )
 
-# ---------------------- 토픽별 세부 키워드 쌍 ----------------------
-TOPIC_DETAILS = {
-    "여행": ["국내여행", "해외여행", "배낭여행"],
-    "다이어트": ["간헐적단식", "홈트", "저탄고지"],
-    "재테크": ["주식", "부동산", "가상화폐"],
-    "뷰티": ["스킨케어", "메이크업", "헤어케어"],
-    "건강": ["면역력", "운동", "영양제"],
-    "AI": ["챗GPT", "머신러닝", "인공지능활용"],
-    "취업": ["이력서작성", "면접팁", "직무역량"],
-    "연애": ["소개팅", "데이트코스", "연애심리"],
-    "자기계발": ["시간관리", "독서법", "습관형성"],
-    "육아": ["영유아발달", "육아팁", "교육방법"]
-}
+# ---------------------- 토픽 설정 로딩 ----------------------
+def load_topic_details(config_path):
+    """Load topic details from a JSON config file."""
+    if not os.path.exists(config_path):
+        logging.error(f"Config file not found: {config_path}")
+        return {}
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+    except Exception as e:
+        logging.error(f"Config read error: {e}")
+        return {}
+
+    data = config.get("topics", config)
+
+    if isinstance(data, dict):
+        return data
+    elif isinstance(data, list):
+        # If only a list of topics is provided, use empty subtopic lists
+        return {topic: [] for topic in data}
+
+    logging.error("Invalid config format")
+    return {}
 
 # ---------------------- 키워드 쌍 생성 ----------------------
 def generate_keyword_pairs(topic_details):
     pairs = []
     for topic, subs in topic_details.items():
-        for sub in subs:
-            pairs.append(f"{topic} {sub}")
+        if subs:
+            for sub in subs:
+                pairs.append(f"{topic} {sub}")
+        else:
+            pairs.append(topic)
     return pairs
 
 # ---------------------- CPC 캐시 ----------------------
@@ -148,7 +162,12 @@ def collect_data_for_keyword(keyword, pytrends):
 
 # ---------------------- 메인 파이프라인 ----------------------
 def run_pipeline():
-    keywords = generate_keyword_pairs(TOPIC_DETAILS)
+    topic_details = load_topic_details(CONFIG_PATH)
+    if not topic_details:
+        logging.error("No topics loaded. Pipeline aborted.")
+        return
+
+    keywords = generate_keyword_pairs(topic_details)
     pytrends = TrendReq(hl='ko', tz=540)
     all_results = []
 
