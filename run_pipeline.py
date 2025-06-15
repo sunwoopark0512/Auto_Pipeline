@@ -4,6 +4,9 @@ import sys
 import os
 from datetime import datetime
 
+from autopipe.opsgenie import alert
+import autopipe.sentry_init
+
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
     level=logging.INFO,
@@ -31,6 +34,7 @@ def run_script(script):
 
     if result.returncode != 0:
         logging.error(f"❌ 실패: {script}\n{result.stderr}")
+        alert(f"Step {script} failed", step=script, error=result.stderr.strip())
         return False
     else:
         logging.info(f"✅ 완료: {script}")
