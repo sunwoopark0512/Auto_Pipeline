@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_KPI_DB_ID = os.getenv("NOTION_KPI_DB_ID")
-SUMMARY_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
+FAILED_ITEMS_PATH = os.getenv("FAILED_ITEMS_PATH", "logs/failed_items.json")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
@@ -21,11 +21,11 @@ notion = Client(auth=NOTION_TOKEN)
 
 # ---------------------- KPI 데이터 수집 ----------------------
 def get_retry_stats():
-    if not os.path.exists(SUMMARY_PATH):
-        logging.error(f"❌ 재시도 데이터 파일이 없습니다: {SUMMARY_PATH}")
+    if not os.path.exists(FAILED_ITEMS_PATH):
+        logging.error(f"❌ 재시도 데이터 파일이 없습니다: {FAILED_ITEMS_PATH}")
         return None
 
-    with open(SUMMARY_PATH, 'r', encoding='utf-8') as f:
+    with open(FAILED_ITEMS_PATH, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
     total = len(data)
