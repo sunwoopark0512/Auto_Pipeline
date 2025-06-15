@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: codex-pipeline
+    env: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    autoDeploy: false
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NOTION_API_TOKEN
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+    startCommand: python run_pipeline.py
