@@ -1,0 +1,7 @@
+pytest>=7.0.0
+pytest-cov>=4.0.0
+flake8>=6.0.0
+safety>=2.3.5
+sphinx>=7.0.0
+python-dotenv>=1.0.0
+openai>=1.14.3
