@@ -12,7 +12,7 @@ load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
-FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
+FAILED_OUTPUT_PATH = os.getenv("FAILED_UPLOADS_PATH", "data/upload_failed_hooks.json")
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
 
 notion = Client(auth=NOTION_TOKEN)
