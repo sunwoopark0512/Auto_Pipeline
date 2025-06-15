@@ -5,6 +5,7 @@ from datetime import datetime
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
+import psutil
 import snscrape.modules.twitter as sntwitter
 import random  # CPC 더미 데이터용
 
@@ -127,9 +128,16 @@ def filter_keywords(entries):
     logging.info(f"필터링된 키워드 개수: {len(filtered)}")
     return filtered
 
+# ---------------------- 메모리 사용량 로깅 ----------------------
+def log_memory_usage(prefix: str = ""):
+    process = psutil.Process(os.getpid())
+    mem_mb = process.memory_info().rss / (1024 * 1024)
+    logging.info(f"{prefix}메모리 사용량: {mem_mb:.2f} MB")
+
 # ---------------------- 키워드별 수집 작업 ----------------------
-def collect_data_for_keyword(keyword, pytrends):
+def collect_data_for_keyword(keyword):
     results = []
+    pytrends = TrendReq(hl='ko', tz=540)
     try:
         gtrend = fetch_google_trends(keyword, pytrends)
         if gtrend:
@@ -149,11 +157,11 @@ def collect_data_for_keyword(keyword, pytrends):
 # ---------------------- 메인 파이프라인 ----------------------
 def run_pipeline():
     keywords = generate_keyword_pairs(TOPIC_DETAILS)
-    pytrends = TrendReq(hl='ko', tz=540)
+    log_memory_usage("시작 전 ")
     all_results = []
 
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(collect_data_for_keyword, kw, pytrends): kw for kw in keywords}
+        futures = {executor.submit(collect_data_for_keyword, kw): kw for kw in keywords}
 
         for future in as_completed(futures):
             kw = futures[future]
@@ -176,6 +184,7 @@ def run_pipeline():
         logging.info(f"✅ 결과 저장 완료: {OUTPUT_PATH}")
     except Exception as e:
         logging.error(f"결과 저장 실패: {e}")
+    log_memory_usage("종료 후 ")
 
 if __name__ == "__main__":
     run_pipeline()
