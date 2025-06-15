@@ -21,9 +21,10 @@ PIPELINE_SEQUENCE = [
 
 # ---------------------- 스크립트 실행 함수 ----------------------
 def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
+    search_paths = [os.path.join("scripts", script), script]
+    full_path = next((p for p in search_paths if os.path.exists(p)), None)
+    if not full_path:
+        logging.error(f"❌ 파일이 존재하지 않습니다: {script}")
         return False
 
     logging.info(f"🚀 실행 중: {script}")
