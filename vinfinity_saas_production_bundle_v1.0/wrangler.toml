@@ -1,0 +1,3 @@
+name = "vinfinity-ab-router"
+main = "edge/ab_router.js"
+kv_namespaces = [{ binding = "KV_AB", id = "xxxx" }]
