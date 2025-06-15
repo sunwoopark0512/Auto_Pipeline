@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
-FAILED_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
+FAILED_ITEMS_PATH = os.getenv("FAILED_ITEMS_PATH", "logs/failed_keywords_reparsed.json")
 RETRY_DELAY = float(os.getenv("RETRY_DELAY", "0.5"))
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
@@ -27,10 +27,10 @@ def truncate_text(text, max_length=2000):
 
 # ---------------------- 실패 키워드 로딩 ----------------------
 def load_failed_items():
-    if not os.path.exists(FAILED_PATH):
-        logging.warning(f"❗ 실패 항목 파일이 존재하지 않습니다: {FAILED_PATH}")
+    if not os.path.exists(FAILED_ITEMS_PATH):
+        logging.warning(f"❗ 실패 항목 파일이 존재하지 않습니다: {FAILED_ITEMS_PATH}")
         return []
-    with open(FAILED_PATH, 'r', encoding='utf-8') as f:
+    with open(FAILED_ITEMS_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 # ---------------------- Notion 페이지 재생성 ----------------------
@@ -62,15 +62,15 @@ def create_retry_page(item):
 
 # ---------------------- 실행 함수 ----------------------
 def retry_failed_uploads():
-    failed_items = load_failed_items()
-    if not failed_items:
+    items = load_failed_items()
+    if not items:
         logging.info("✅ 재시도할 실패 항목이 없습니다.")
         return
 
     success, failed = 0, 0
-    still_failed = []
+    failed_items = []
 
-    for item in failed_items:
+    for item in items:
         keyword = item.get("keyword")
         if not keyword:
             logging.warning("⛔ keyword 누락 항목 건너뜀")
@@ -82,15 +82,15 @@ def retry_failed_uploads():
         except Exception as e:
             logging.error(f"❌ 재시도 실패: {keyword} - {e}")
             item["retry_error"] = str(e)
-            still_failed.append(item)
+            failed_items.append(item)
             failed += 1
         time.sleep(RETRY_DELAY)
 
     # 실패 파일 덮어쓰기
-    if still_failed:
-        with open(FAILED_PATH, 'w', encoding='utf-8') as f:
-            json.dump(still_failed, f, ensure_ascii=False, indent=2)
-        logging.warning(f"🔁 여전히 실패한 항목 {len(still_failed)}개가 남아 있습니다.")
+    if failed_items:
+        with open(FAILED_ITEMS_PATH, 'w', encoding='utf-8') as f:
+            json.dump(failed_items, f, ensure_ascii=False, indent=2)
+        logging.warning(f"🔁 여전히 실패한 항목 {len(failed_items)}개가 남아 있습니다.")
 
     # 요약
     logging.info("📦 재시도 업로드 요약")
