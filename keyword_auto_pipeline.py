@@ -4,9 +4,10 @@ import logging
 from datetime import datetime
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pytrends.request import TrendReq
-import snscrape.modules.twitter as sntwitter
-import random  # CPC 더미 데이터용
+from pytrends.request import TrendReq  # type: ignore
+import snscrape.modules.twitter as sntwitter  # type: ignore
+import random  # For fallback CPC generation
+import requests
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
@@ -47,13 +48,35 @@ def generate_keyword_pairs(topic_details):
     return pairs
 
 # ---------------------- CPC 캐시 ----------------------
-cpc_cache = {}
+from typing import Dict
 
-def fetch_cpc_dummy(keyword):
-    if keyword not in cpc_cache:
-        cpc_cache[keyword] = random.randint(500, 2000)
-        logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
-    return cpc_cache[keyword]
+cpc_cache: Dict[str, int] = {}
+
+
+def fetch_cpc(keyword: str) -> int:
+    """Retrieve CPC value for a keyword from an advertising API.
+
+    The result is cached in ``cpc_cache`` to avoid redundant API calls.
+    If the API request fails, a random fallback CPC is generated.
+    """
+
+    if keyword in cpc_cache:
+        return cpc_cache[keyword]
+
+    try:
+        response = requests.get(
+            "https://ads.example.com/cpc", params={"keyword": keyword}, timeout=5
+        )
+        response.raise_for_status()
+        data = response.json()
+        cpc_value = int(data.get("cpc", 0))
+    except Exception as exc:  # pylint: disable=broad-except
+        logging.error("CPC fetch failed for '%s': %s", keyword, exc)
+        cpc_value = random.randint(500, 2000)
+
+    cpc_cache[keyword] = cpc_value
+    logging.debug("CPC cached: %s = %s", keyword, cpc_value)
+    return cpc_value
 
 # ---------------------- 데이터 수집 함수 ----------------------
 def fetch_google_trends(keyword, pytrends):
@@ -73,7 +96,7 @@ def fetch_google_trends(keyword, pytrends):
             "source": "GoogleTrends",
             "score": int(recent_avg),
             "growth": growth,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
         return result
@@ -97,7 +120,7 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "source": "Twitter",
             "mentions": mentions,
             "top_retweet": top_retweets[0] if top_retweets else 0,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
         return result
@@ -126,6 +149,11 @@ def filter_keywords(entries):
 
     logging.info(f"필터링된 키워드 개수: {len(filtered)}")
     return filtered
+
+# ---------------------- 상위 키워드 선택 ----------------------
+def select_top_keywords(entries, top_n=5):
+    """Return top keywords sorted by CPC in descending order."""
+    return sorted(entries, key=lambda x: x.get("cpc", 0), reverse=True)[:top_n]
 
 # ---------------------- 키워드별 수집 작업 ----------------------
 def collect_data_for_keyword(keyword, pytrends):
