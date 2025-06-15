@@ -1,0 +1,30 @@
+name: CI
+
+on: [pull_request]
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements-dev.txt
+      - run: make lint
+      - run: pytest -q
+
+  otel-trace:
+    needs: lint-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f deploy/docker/otel-compose.yml up -d --wait
+      - run: pytest -m "otel" -q
+
+  gitleaks-scan:
+    needs: lint-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gitleaks/gitleaks-action@v2.3.4
+        with: {fail: true}
