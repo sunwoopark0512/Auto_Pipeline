@@ -1,0 +1,21 @@
+name: Weekly Insight CI
+
+on:
+  schedule:
+    - cron: "0 8 * * MON"
+
+jobs:
+  weekly-insight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python auto_insight.py --table content --days 7 --notion-db ${{ secrets.NOTION_DB_ID }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
