@@ -1,0 +1,9 @@
+openai>=1.0
+python-dotenv
+notion-client
+pytrends
+snscrape
+aiolimiter>=1.1
+tenacity
+pytest
+pytest-asyncio
