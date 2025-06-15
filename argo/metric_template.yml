@@ -1,0 +1,8 @@
+apiVersion: argoproj.io/v1alpha1
+kind: MetricTemplate
+metadata: { name: error-rate }
+spec:
+  provider:
+    prometheus:
+      address: http://prometheus:9090
+      query: rate(http_request_errors_total[2m]) < 0.05
