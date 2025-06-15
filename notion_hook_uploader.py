@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from utils import truncate_text
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -24,10 +25,6 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-
-# ---------------------- 유틸: Notion rich_text 제한 처리 ----------------------
-def truncate_text(text, max_length=2000):
-    return text if len(text) <= max_length else text[:max_length]
 
 # ---------------------- 중복 키워드 확인 함수 ----------------------
 def page_exists(keyword):
