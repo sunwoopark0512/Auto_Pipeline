@@ -1,0 +1,68 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Python 설정
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+    
+    - name: 의존성 설치
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements-dev.txt ]; then
+          pip install -r requirements-dev.txt
+        elif [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+        pip install pytest pytest-cov mypy pylint
+
+    - name: Type Checking
+      run: |
+        mypy src/ tests/ --ignore-missing-imports
+
+    - name: Lint
+      run: |
+        pylint src/ tests/ --disable=C0111,C0103,C0330
+
+    - name: fix_exporter.py 실행
+      run: |
+        if [ -f "fix_exporter.py" ]; then
+          python fix_exporter.py --verify
+        else
+          echo "fix_exporter.py를 찾을 수 없습니다"
+          exit 1
+        fi
+
+    - name: 테스트 실행
+      run: |
+        PYTHONPATH=src pytest tests/ -v --cov=src --cov-report=xml
+
+    - name: 테스트 결과 업로드
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ github.sha }}
+        path: |
+          ./coverage.xml
+          .pytest_cache
+        retention-days: 14
