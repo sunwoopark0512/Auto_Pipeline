@@ -2,7 +2,6 @@ import os
 import json
 import time
 import logging
-import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
@@ -44,16 +43,31 @@ def page_exists(keyword):
 
 # ---------------------- GPT 결과 파싱 함수 ----------------------
 def parse_generated_text(text):
-    hook_lines = re.findall(r"후킹 ?문장[0-9]?[\s:：\-\)]*([^\n]+)", text)
-    blog_match = re.search(r"블로그(?:\s*초안)?[\s:：\-\)]*(.*?)\n+\s*(.*?\n+.*?\n+.*?)(?:\n|$)", text, re.DOTALL)
-    video_titles = re.findall(r"(?:영상 제목|YouTube 제목)[\s:：\-\)]*[^\n]*\n?-\s*(.+)", text)
+    try:
+        data = json.loads(text)
+        hook_lines = data.get("hook_lines", [])
+        blog_paragraphs = data.get("blog_paragraphs", [])
+        video_titles = data.get("video_titles", [])
 
-    blog_paragraphs = [p.strip() for p in blog_match[1].strip().split('\n')[:3]] if blog_match else ["", "", ""]
-    return {
-        "hook_lines": hook_lines[:2] if len(hook_lines) >= 2 else ["", ""],
-        "blog_paragraphs": blog_paragraphs,
-        "video_titles": video_titles[:2] if video_titles else ["", ""]
-    }
+        if not isinstance(hook_lines, list) or len(hook_lines) < 2:
+            raise ValueError("hook_lines 형식 오류")
+        if not isinstance(blog_paragraphs, list) or len(blog_paragraphs) < 3:
+            raise ValueError("blog_paragraphs 형식 오류")
+        if not isinstance(video_titles, list) or len(video_titles) < 2:
+            raise ValueError("video_titles 형식 오류")
+
+        return {
+            "hook_lines": [str(hook_lines[0]), str(hook_lines[1])],
+            "blog_paragraphs": [str(p) for p in blog_paragraphs[:3]],
+            "video_titles": [str(video_titles[0]), str(video_titles[1])],
+        }
+    except Exception as e:  # pylint: disable=broad-except
+        logging.warning(f"⚠️ JSON 파싱 실패: {e}")
+        return {
+            "hook_lines": ["", ""],
+            "blog_paragraphs": ["", "", ""],
+            "video_titles": ["", ""],
+        }
 
 # ---------------------- Notion 페이지 생성 함수 ----------------------
 def create_notion_page(item):

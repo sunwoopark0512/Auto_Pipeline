@@ -25,11 +25,12 @@ def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
     주제: {keyword}
     출처: {source}
     트렌드 점수: {score}, 성장률: {growth}, 트윗 수: {mentions}
-    이 정보를 기반으로:
-    - 숏폼 영상의 후킹 문장 2개
-    - 블로그 포스트의 3문단 초안
-    - YouTube 영상 제목 예시 2개
-    를 마케팅적으로 끌리는 문장으로 생성해줘. 말투는 친근하면서도 전문가처럼.
+    위 정보를 마케팅 관점에서 활용하여 다음 형식의 JSON을 반환해줘. 다른 설명은 필요 없어. 응답은 반드시 JSON만 포함해야 해.
+    {{
+      "hook_lines": ["첫 번째 후킹 문장", "두 번째 후킹 문장"],
+      "blog_paragraphs": ["첫 문단", "둘째 문단", "셋째 문단"],
+      "video_titles": ["제목1", "제목2"]
+    }}
     """
     return base.strip()
 
@@ -104,16 +105,23 @@ def generate_hooks():
         }
 
         if response:
-            lines = response.split('\n')
-            result.update({
-                "hook_lines": lines[0:2],
-                "blog_paragraphs": lines[2:5],
-                "video_titles": lines[5:],
-                "generated_text": response
-            })
-            new_output.append(result)
-            logging.info(f"✅ 생성 완료: {keyword}")
-            success += 1
+            try:
+                parsed = json.loads(response)
+                result.update({
+                    "hook_lines": parsed.get("hook_lines", [])[:2],
+                    "blog_paragraphs": parsed.get("blog_paragraphs", [])[:3],
+                    "video_titles": parsed.get("video_titles", [])[:2],
+                    "generated_text": response
+                })
+                new_output.append(result)
+                logging.info(f"✅ 생성 완료: {keyword}")
+                success += 1
+            except json.JSONDecodeError as e:
+                result["generated_text"] = response
+                result["error"] = f"JSON 파싱 실패: {e}"
+                failed_output.append(result)
+                logging.error(f"❌ JSON 파싱 실패: {keyword}")
+                failed += 1
         else:
             result["generated_text"] = None
             result["error"] = "GPT 응답 실패"
