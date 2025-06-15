@@ -6,7 +6,9 @@ from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
-import random  # CPC 더미 데이터용
+import csv
+import requests
+import random
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
@@ -49,10 +51,48 @@ def generate_keyword_pairs(topic_details):
 # ---------------------- CPC 캐시 ----------------------
 cpc_cache = {}
 
-def fetch_cpc_dummy(keyword):
-    if keyword not in cpc_cache:
-        cpc_cache[keyword] = random.randint(500, 2000)
-        logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
+
+def fetch_cpc(keyword):
+    """Return CPC estimate using API or dataset with random fallback."""
+    if keyword in cpc_cache:
+        return cpc_cache[keyword]
+
+    api_url = os.getenv("CPC_API_URL")
+    if api_url:
+        try:
+            url = api_url.format(keyword=keyword)
+            res = requests.get(url, timeout=5)
+            res.raise_for_status()
+            data = res.json()
+            if "cpc" in data:
+                cpc_cache[keyword] = float(data["cpc"])
+                logging.debug(
+                    "CPC API 응답: %s = %s", keyword, cpc_cache[keyword]
+                )
+                return cpc_cache[keyword]
+        except Exception as api_err:  # pylint: disable=broad-except
+            logging.warning("CPC API 사용 실패 %s: %s", keyword, api_err)
+
+    dataset_path = os.getenv("CPC_DATASET_PATH")
+    if dataset_path and os.path.isfile(dataset_path):
+        try:
+            if not hasattr(fetch_cpc, "_dataset"):
+                with open(dataset_path, newline="", encoding="utf-8") as csvfile:
+                    reader = csv.DictReader(csvfile)
+                    fetch_cpc._dataset = {
+                        row["keyword"]: float(row["cpc"]) for row in reader
+                    }
+            if keyword in fetch_cpc._dataset:
+                cpc_cache[keyword] = fetch_cpc._dataset[keyword]
+                logging.debug(
+                    "CPC dataset 사용: %s = %s", keyword, cpc_cache[keyword]
+                )
+                return cpc_cache[keyword]
+        except Exception as data_err:  # pylint: disable=broad-except
+            logging.warning("CPC 데이터셋 사용 실패 %s: %s", keyword, data_err)
+
+    cpc_cache[keyword] = random.randint(500, 2000)
+    logging.debug("CPC 랜덤값 사용: %s = %s", keyword, cpc_cache[keyword])
     return cpc_cache[keyword]
 
 # ---------------------- 데이터 수집 함수 ----------------------
@@ -73,7 +113,7 @@ def fetch_google_trends(keyword, pytrends):
             "source": "GoogleTrends",
             "score": int(recent_avg),
             "growth": growth,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
         return result
@@ -97,7 +137,7 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "source": "Twitter",
             "mentions": mentions,
             "top_retweet": top_retweets[0] if top_retweets else 0,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
         return result
