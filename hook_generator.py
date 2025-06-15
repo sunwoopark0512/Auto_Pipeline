@@ -20,7 +20,7 @@ openai.api_key = OPENAI_API_KEY
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
-def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
+def generate_hook_prompt(keyword, source, score, growth, mentions):
     base = f"""
     주제: {keyword}
     출처: {source}
@@ -89,7 +89,6 @@ def generate_hooks():
 
         prompt = generate_hook_prompt(
             keyword=keyword,
-            topic=keyword.split()[0],
             source=item.get('source'),
             score=item.get('score', 0),
             growth=item.get('growth', 0),
