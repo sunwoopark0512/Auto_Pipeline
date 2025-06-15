@@ -1,2 +1,13 @@
+# Environment files
 .env
+
+# Python caches and bytecode
+__pycache__/
+*.pyc
+
+# Generated data and logs
+data/
 logs/
+
+# Misc build artifacts
+*.log
