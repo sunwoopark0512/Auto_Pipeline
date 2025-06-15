@@ -10,7 +10,7 @@ import openai
 load_dotenv()
 KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
 HOOK_OUTPUT_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
-FAILED_HOOK_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_hooks.json")
+FAILED_ITEMS_PATH = os.getenv("FAILED_ITEMS_PATH", "logs/failed_items.json")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_DELAY = float(os.getenv("API_DELAY", "1.0"))
 
@@ -129,10 +129,10 @@ def generate_hooks():
         json.dump(full_output, f, ensure_ascii=False, indent=2)
 
     if failed_output:
-        os.makedirs(os.path.dirname(FAILED_HOOK_PATH), exist_ok=True)
-        with open(FAILED_HOOK_PATH, 'w', encoding='utf-8') as f:
+        os.makedirs(os.path.dirname(FAILED_ITEMS_PATH), exist_ok=True)
+        with open(FAILED_ITEMS_PATH, 'w', encoding='utf-8') as f:
             json.dump(failed_output, f, ensure_ascii=False, indent=2)
-        logging.warning(f"⚠️ 실패 후킹 저장 완료: {FAILED_HOOK_PATH}")
+        logging.warning(f"⚠️ 실패 후킹 저장 완료: {FAILED_ITEMS_PATH}")
 
     logging.info("📊 생성 작업 요약")
     logging.info(f"총 키워드: {len(keywords)} | 성공: {success} | 중복스킵: {skipped} | 실패: {failed}")
