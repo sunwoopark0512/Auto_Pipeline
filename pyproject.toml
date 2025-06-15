@@ -1,0 +1,10 @@
+[project]
+name = "auto-pipeline"
+version = "0.1.0"
+description = "Automated pipeline tools"
+authors = ["sunwoopark0512"]
+
+[project.urls]
+"CI Status" = "https://github.com/sunwoopark0512/Auto_Pipeline/actions/workflows/ci.yml"
+"Repository" = "https://github.com/sunwoopark0512/Auto_Pipeline"
+"Bug Tracker" = "https://github.com/sunwoopark0512/Auto_Pipeline/issues"
