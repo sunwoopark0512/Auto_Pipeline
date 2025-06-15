@@ -6,6 +6,7 @@ from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
 
+from autopipe.utils import truncate_text
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
@@ -21,9 +22,6 @@ if not NOTION_TOKEN or not NOTION_HOOK_DB_ID:
     exit(1)
 notion = Client(auth=NOTION_TOKEN)
 
-# ---------------------- 유틸: rich_text 길이 제한 ----------------------
-def truncate_text(text, max_length=2000):
-    return text if len(text) <= max_length else text[:max_length]
 
 # ---------------------- 실패 키워드 로딩 ----------------------
 def load_failed_items():
