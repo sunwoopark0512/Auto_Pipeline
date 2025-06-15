@@ -1,0 +1,19 @@
+{
+  "codeChunks": [
+    {
+      "label": "Run Pipeline",
+      "command": "python cli.py --topic 'AI Marketing' --token $WORDPRESS_API_TOKEN",
+      "language": "shell"
+    },
+    {
+      "label": "Streamlit Dashboard",
+      "command": "streamlit run dashboard.py",
+      "language": "shell"
+    },
+    {
+      "label": "Run Tests",
+      "command": "pytest tests/",
+      "language": "shell"
+    }
+  ]
+}
