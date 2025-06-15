@@ -16,6 +16,9 @@ jobs:
       NOTION_KPI_DB_ID: ${{ secrets.NOTION_KPI_DB_ID }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       REPARSED_OUTPUT_PATH: logs/failed_keywords_reparsed.json
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      NOTION_KEY: ${{ secrets.NOTION_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
 
     steps:
       - name: 📂 Checkout repository

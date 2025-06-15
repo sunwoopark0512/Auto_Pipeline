@@ -1,0 +1,35 @@
+name: GitOps Deploy
+
+on:
+  push:
+    paths:
+      - 'infra/**'
+      - 'argo/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      NOTION_KEY: ${{ secrets.NOTION_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: terraform -chdir=infra init
+
+      - name: Terraform Apply
+        run: terraform -chdir=infra apply -auto-approve
+        env:
+          TF_VAR_render_api_key: ${{ env.RENDER_API_KEY }}
+          TF_VAR_notion_key: ${{ env.NOTION_KEY }}
+          TF_VAR_supabase_url: ${{ env.SUPABASE_URL }}
+
+      - name: Apply Argo CD manifests
+        run: kubectl apply -f argo/
