@@ -5,6 +5,8 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from openai.error import OpenAIError
+from utils import retry_with_backoff
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -17,7 +19,15 @@ API_DELAY = float(os.getenv("API_DELAY", "1.0"))
 openai.api_key = OPENAI_API_KEY
 
 # ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+os.makedirs("logs", exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s:%(message)s',
+    handlers=[
+        logging.FileHandler("logs/hook_generator.log"),
+        logging.StreamHandler(),
+    ],
+)
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
 def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
@@ -34,19 +44,28 @@ def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
     return base.strip()
 
 # ---------------------- GPT 호출 함수 (재시도 포함) ----------------------
-def get_gpt_response(prompt, retries=3):
-    for attempt in range(retries):
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7
-            )
-            return response.choices[0].message['content']
-        except Exception as e:
-            logging.warning(f"GPT 호출 실패 {attempt + 1}/{retries}: {e}")
-            time.sleep(2)
-    return None
+def get_gpt_response(prompt, retries: int = 3) -> str | None:
+    """Call OpenAI API with retries and exponential backoff."""
+
+    def _call_api():
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+        )
+        return response.choices[0].message["content"]
+
+    try:
+        return retry_with_backoff(
+            _call_api,
+            max_retries=retries,
+            base_delay=1,
+            exceptions=(OpenAIError,),
+            logger=logging.getLogger(__name__),
+        )
+    except OpenAIError as exc:
+        logging.error("GPT 호출 최종 실패: %s", exc)
+        return None
 
 # ---------------------- 메인 실행 함수 ----------------------
 def generate_hooks():
