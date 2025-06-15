@@ -20,8 +20,20 @@ PIPELINE_SEQUENCE = [
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
+def run_script(script: str) -> bool:
+    """Run a pipeline step located in the same directory.
+
+    Parameters
+    ----------
+    script : str
+        Script filename inside the scripts directory.
+    Returns
+    -------
+    bool
+        True if the script executed successfully, False otherwise.
+    """
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    full_path = os.path.join(base_dir, script)
     if not os.path.exists(full_path):
         logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
         return False
