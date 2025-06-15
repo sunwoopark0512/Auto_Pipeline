@@ -1,0 +1,17 @@
+name: Deploy Analytics Worker
+
+on:
+  push:
+    paths:
+      - 'analytics_worker.py'
+      - 'ffmpeg_renderer.py'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: render-examples/action-render-deploy@v1
+        with:
+          api-key: ${{ secrets.RENDER_API_KEY }}
+          service-id: ${{ secrets.RENDER_ANALYTICS_ID }}
