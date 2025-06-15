@@ -1,0 +1,22 @@
+name: ArgoCD Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "k8s/**"
+      - "argo/**"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trigger ArgoCD Refresh
+        run: |
+          curl -X POST \
+          -H "Authorization: Bearer $ARGOCD_TOKEN" \
+          "$ARGOCD_SERVER/api/v1/applications/vinfinity-api/refresh"
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_TOKEN:  ${{ secrets.ARGOCD_TOKEN }}

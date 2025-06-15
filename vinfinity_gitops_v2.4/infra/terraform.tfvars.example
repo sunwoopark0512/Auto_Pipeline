@@ -1,0 +1,5 @@
+render_api_key = "RENDER_API_KEY_HERE"
+github_repo    = "https://github.com/your/repo.git"
+notion_key     = "secret_xxx"
+supabase_url   = "https://xxx.supabase.co"
+supabase_key   = "anonkey"
