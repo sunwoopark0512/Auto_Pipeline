@@ -1,0 +1,60 @@
+name: Update Status
+
+on:
+  schedule:
+    - cron: '* * * * *'  # Every minute
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - 'README.md'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Get current time
+      id: current-time
+      run: |
+        echo "time=$(date -u +"%Y-%m-%d %H:%M:%S")" >> $GITHUB_OUTPUT
+
+    - name: Update README timestamps
+      run: |
+        current_time="${{ steps.current-time.outputs.time }}"
+        formatted_time=$(echo "$current_time" | sed 's/-/--/g' | sed 's/ /%20/g' | sed 's/:/\\:/g')
+        
+        # Update badge timestamp
+        sed -i "s/Last%20Updated-.*-blue/Last%20Updated-$formatted_time-blue/" README.md
+        
+        # Update table timestamp
+        sed -i "s/| Last Updated | .* UTC |/| Last Updated | $current_time UTC |/" README.md
+        
+        # Update footer timestamp
+        sed -i "s/*Last updated: .* UTC/*Last updated: $current_time UTC/" README.md
+
+    - name: Update user information
+      env:
+        GITHUB_USER: ${{ github.actor }}
+      run: |
+        # Update badge user
+        sed -i "s/User-.*-green/User-$GITHUB_USER-green/" README.md
+        
+        # Update table user
+        sed -i "s/| Current User | @.* |/| Current User | @$GITHUB_USER |/" README.md
+        
+        # Update footer user
+        sed -i "s/UTC by @.*/UTC by @$GITHUB_USER*/" README.md
+
+    - name: Commit and push if changed
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add README.md
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Update status: $(date -u +"%Y-%m-%d %H:%M:%S") [skip ci]" && git push)
