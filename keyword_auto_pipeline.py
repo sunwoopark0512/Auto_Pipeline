@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+from utils.logger import setup_logging
 from datetime import datetime
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -19,10 +20,7 @@ TWITTER_MIN_TOP_RETWEET = 50
 MIN_CPC = 1000  # 원 (더미 기준)
 
 # ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s:%(message)s'
-)
+setup_logging()
 
 # ---------------------- 토픽별 세부 키워드 쌍 ----------------------
 TOPIC_DETAILS = {
