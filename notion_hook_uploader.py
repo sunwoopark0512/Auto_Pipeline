@@ -5,15 +5,15 @@ import logging
 import re
 from datetime import datetime
 from notion_client import Client
-from dotenv import load_dotenv
+import config
 
 # ---------------------- 설정 로딩 ----------------------
-load_dotenv()
-NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
-NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
-HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
+NOTION_TOKEN = config.NOTION_API_TOKEN
+NOTION_HOOK_DB_ID = config.NOTION_HOOK_DB_ID
+HOOK_JSON_PATH = config.HOOK_OUTPUT_PATH
 FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
-UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
+UPLOAD_DELAY = config.UPLOAD_DELAY
+config.require("NOTION_API_TOKEN", "NOTION_HOOK_DB_ID")
 
 notion = Client(auth=NOTION_TOKEN)
 logging.basicConfig(

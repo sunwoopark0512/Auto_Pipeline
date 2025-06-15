@@ -4,16 +4,16 @@ import time
 import logging
 from datetime import datetime
 from notion_client import Client
-from dotenv import load_dotenv
+import config
 
 # ---------------------- 설정 로딩 ----------------------
-load_dotenv()
-NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
-NOTION_DB_ID = os.getenv("NOTION_DB_ID")
-KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
-UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
-CACHE_PATH = os.getenv("UPLOADED_CACHE_PATH", "data/uploaded_keywords_cache.json")
-FAILED_PATH = os.getenv("FAILED_UPLOADS_PATH", "logs/failed_uploads.json")
+NOTION_TOKEN = config.NOTION_API_TOKEN
+NOTION_DB_ID = config.NOTION_DB_ID
+KEYWORD_JSON_PATH = config.KEYWORD_OUTPUT_PATH
+UPLOAD_DELAY = config.UPLOAD_DELAY
+CACHE_PATH = config.UPLOADED_CACHE_PATH
+FAILED_PATH = config.FAILED_UPLOADS_PATH
+config.require("NOTION_API_TOKEN", "NOTION_DB_ID")
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
@@ -66,9 +66,6 @@ def create_notion_page(item):
 
 # ---------------------- 업로드 메인 함수 ----------------------
 def upload_all_keywords():
-    if not NOTION_TOKEN or not NOTION_DB_ID:
-        logging.error("❗ 환경 변수(NOTION_API_TOKEN, NOTION_DB_ID)가 누락되었습니다.")
-        return
 
     try:
         with open(KEYWORD_JSON_PATH, 'r', encoding='utf-8') as f:

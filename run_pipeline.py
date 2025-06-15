@@ -3,6 +3,7 @@ import subprocess
 import sys
 import os
 from datetime import datetime
+import config  # noqa: F401
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(

@@ -3,20 +3,17 @@ import json
 import logging
 from datetime import datetime
 from notion_client import Client
-from dotenv import load_dotenv
+import config
 
 # ---------------------- 설정 로딩 ----------------------
-load_dotenv()
-NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
-NOTION_KPI_DB_ID = os.getenv("NOTION_KPI_DB_ID")
-SUMMARY_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
+NOTION_TOKEN = config.NOTION_API_TOKEN
+NOTION_KPI_DB_ID = config.NOTION_KPI_DB_ID
+SUMMARY_PATH = config.REPARSED_OUTPUT_PATH
+config.require("NOTION_API_TOKEN", "NOTION_KPI_DB_ID")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
 # ---------------------- Notion 클라이언트 ----------------------
-if not NOTION_TOKEN or not NOTION_KPI_DB_ID:
-    logging.error("❗ 환경 변수(NOTION_API_TOKEN, NOTION_KPI_DB_ID)가 누락되었습니다.")
-    exit(1)
 notion = Client(auth=NOTION_TOKEN)
 
 # ---------------------- KPI 데이터 수집 ----------------------
