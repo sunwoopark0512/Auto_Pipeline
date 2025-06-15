@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+from utils.logger import setup_logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
@@ -17,7 +18,7 @@ API_DELAY = float(os.getenv("API_DELAY", "1.0"))
 openai.api_key = OPENAI_API_KEY
 
 # ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+setup_logging()
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
 def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
