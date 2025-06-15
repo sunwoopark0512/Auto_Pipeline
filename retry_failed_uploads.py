@@ -1,10 +1,13 @@
-import os
 import json
-import time
 import logging
+import os
+import time
 from datetime import datetime
-from notion_client import Client
+
 from dotenv import load_dotenv
+from notion_client import Client
+
+from utils.logger import setup_logging
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -13,7 +16,7 @@ NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 FAILED_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
 RETRY_DELAY = float(os.getenv("RETRY_DELAY", "0.5"))
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+setup_logging()
 
 # ---------------------- Notion 클라이언트 ----------------------
 if not NOTION_TOKEN or not NOTION_HOOK_DB_ID:
@@ -21,21 +24,24 @@ if not NOTION_TOKEN or not NOTION_HOOK_DB_ID:
     exit(1)
 notion = Client(auth=NOTION_TOKEN)
 
+
 # ---------------------- 유틸: rich_text 길이 제한 ----------------------
 def truncate_text(text, max_length=2000):
     return text if len(text) <= max_length else text[:max_length]
+
 
 # ---------------------- 실패 키워드 로딩 ----------------------
 def load_failed_items():
     if not os.path.exists(FAILED_PATH):
         logging.warning(f"❗ 실패 항목 파일이 존재하지 않습니다: {FAILED_PATH}")
         return []
-    with open(FAILED_PATH, 'r', encoding='utf-8') as f:
+    with open(FAILED_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
+
 
 # ---------------------- Notion 페이지 재생성 ----------------------
 def create_retry_page(item):
-    keyword = item.get('keyword')
+    keyword = item.get("keyword")
     if not keyword:
         raise ValueError("keyword 누락됨")
 
@@ -44,7 +50,7 @@ def create_retry_page(item):
     parsed = item.get("parsed") or {
         "hook_lines": item.get("hook_lines", ["", ""]),
         "blog_paragraphs": item.get("blog_paragraphs", ["", "", ""]),
-        "video_titles": item.get("video_titles", ["", ""])
+        "video_titles": item.get("video_titles", ["", ""]),
     }
 
     notion.pages.create(
@@ -52,13 +58,40 @@ def create_retry_page(item):
         properties={
             "키워드": {"title": [{"text": {"content": keyword}}]},
             "채널": {"select": {"name": topic}},
-            "등록일": {"date": {"start": datetime.utcnow().isoformat() + 'Z'}},
-            "후킹문1": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][0])}}]},
-            "후킹문2": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][1])}}]},
-            "블로그초안": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["blog_paragraphs"]))}}]},
-            "영상제목": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["video_titles"]))}}]}
-        }
+            "등록일": {"date": {"start": datetime.utcnow().isoformat() + "Z"}},
+            "후킹문1": {
+                "rich_text": [
+                    {"text": {"content": truncate_text(parsed["hook_lines"][0])}}
+                ]
+            },
+            "후킹문2": {
+                "rich_text": [
+                    {"text": {"content": truncate_text(parsed["hook_lines"][1])}}
+                ]
+            },
+            "블로그초안": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": truncate_text(
+                                "\n".join(parsed["blog_paragraphs"])
+                            )
+                        }
+                    }
+                ]
+            },
+            "영상제목": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": truncate_text("\n".join(parsed["video_titles"]))
+                        }
+                    }
+                ]
+            },
+        },
     )
+
 
 # ---------------------- 실행 함수 ----------------------
 def retry_failed_uploads():
@@ -88,13 +121,14 @@ def retry_failed_uploads():
 
     # 실패 파일 덮어쓰기
     if still_failed:
-        with open(FAILED_PATH, 'w', encoding='utf-8') as f:
+        with open(FAILED_PATH, "w", encoding="utf-8") as f:
             json.dump(still_failed, f, ensure_ascii=False, indent=2)
         logging.warning(f"🔁 여전히 실패한 항목 {len(still_failed)}개가 남아 있습니다.")
 
     # 요약
     logging.info("📦 재시도 업로드 요약")
     logging.info(f"성공: {success} | 실패 유지: {failed}")
+
 
 if __name__ == "__main__":
     retry_failed_uploads()

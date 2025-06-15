@@ -1,9 +1,12 @@
-import os
 import json
 import logging
+import os
 from datetime import datetime
-from notion_client import Client
+
 from dotenv import load_dotenv
+from notion_client import Client
+
+from utils.logger import setup_logging
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -11,7 +14,7 @@ NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_KPI_DB_ID = os.getenv("NOTION_KPI_DB_ID")
 SUMMARY_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+setup_logging()
 
 # ---------------------- Notion 클라이언트 ----------------------
 if not NOTION_TOKEN or not NOTION_KPI_DB_ID:
@@ -19,13 +22,14 @@ if not NOTION_TOKEN or not NOTION_KPI_DB_ID:
     exit(1)
 notion = Client(auth=NOTION_TOKEN)
 
+
 # ---------------------- KPI 데이터 수집 ----------------------
 def get_retry_stats():
     if not os.path.exists(SUMMARY_PATH):
         logging.error(f"❌ 재시도 데이터 파일이 없습니다: {SUMMARY_PATH}")
         return None
 
-    with open(SUMMARY_PATH, 'r', encoding='utf-8') as f:
+    with open(SUMMARY_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     total = len(data)
@@ -39,8 +43,9 @@ def get_retry_stats():
         "total": total,
         "success": success,
         "failed": failed,
-        "rate": rate
+        "rate": rate,
     }
+
 
 # ---------------------- Notion KPI 행 추가 ----------------------
 def push_kpi_to_notion(kpi):
@@ -52,12 +57,13 @@ def push_kpi_to_notion(kpi):
                 "전체 시도": {"number": kpi["total"]},
                 "성공": {"number": kpi["success"]},
                 "실패": {"number": kpi["failed"]},
-                "성공률(%)": {"number": kpi["rate"]}
-            }
+                "성공률(%)": {"number": kpi["rate"]},
+            },
         )
         logging.info("📊 Notion KPI 업데이트 완료")
     except Exception as e:
         logging.error(f"❌ Notion KPI 전송 실패: {e}")
+
 
 # ---------------------- 실행 진입점 ----------------------
 if __name__ == "__main__":
