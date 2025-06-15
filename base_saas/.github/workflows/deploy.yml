@@ -1,0 +1,15 @@
+name: SaaS Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -r requirements.txt
+      - run: python auto_compile.py
+      - run: echo "Docker build placeholder"
+      - run: echo "Deploy placeholder"

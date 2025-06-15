@@ -1,0 +1,1 @@
+print("Auto compile placeholder")

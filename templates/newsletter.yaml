@@ -1,0 +1,15 @@
+project: AI Newsletter Generator
+description: GPT 기반 뉴스레터 작성 SaaS
+features:
+  - Summarize URL content
+  - SEO optimize
+  - Auto schedule send
+billing:
+  plans:
+    - name: Free
+      quota: 10000
+    - name: Pro
+      quota: 100000
+      price: 29
+    - name: Enterprise
+      quota: Unlimited
