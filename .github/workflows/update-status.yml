@@ -1,0 +1,43 @@
+name: Update Status
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # 5분마다 실행
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - 'README.md'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Update README
+      run: |
+        current_time=$(date -u +"%Y-%m-%d %H:%M:%S")
+        # Update timestamp in badges
+        sed -i "s/Last%20Updated-.*-blue/Last%20Updated-$(date -u +\"%Y-%m-%d%%20%H%%3A%M%%3A%S\")-blue/" README.md
+        # Update timestamp in content
+        sed -i "s/Last Updated:.*/Last Updated: $current_time UTC/" README.md
+        sed -i "s/\*Last updated:.*/\*Last updated: $current_time UTC by @${{ github.actor }}*/" README.md
+        # Update current user if changed
+        current_user="${{ github.actor }}"
+        sed -i "s/Current%20User-@.*-green/Current%20User-@$current_user-green/" README.md
+        sed -i "s/Current User: @.*/Current User: @$current_user/" README.md
+
+    - name: Commit and push if changed
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add README.md
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Update status timestamps and user information [skip ci]" && git push)
