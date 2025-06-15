@@ -1,0 +1,26 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Run linters
+        run: |
+          pylint autopipe --fail-under 8.5
+          mypy autopipe
+      - name: Run tests
+        run: pytest --cov=autopipe --cov-report=xml
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
