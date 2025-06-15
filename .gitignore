@@ -1,2 +1,15 @@
+# Local environment overrides
 .env
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Generated data and logs
+data/
 logs/
+*.log
+
+# Misc caches
+*.cache
+
