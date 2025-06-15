@@ -1,0 +1,5 @@
+- alert: KVHighObjects
+  expr: vinfinity_kv_objects > 1e6
+  for: 10m
+  labels:
+    severity: critical

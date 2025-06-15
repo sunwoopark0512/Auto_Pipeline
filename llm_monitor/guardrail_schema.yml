@@ -1,0 +1,19 @@
+output:
+  type: openai
+  properties:
+    safe_response:
+      type: string
+      max_tokens: 1024
+
+guardrails:
+  - name: pii_filter
+    on_fail: "reask"
+    check:
+      type: pii
+      match:
+        threshold: 0.6
+  - name: profanity
+    on_fail: "block"
+    check:
+      type: regex
+      match: "(?i)(\\b(?:f\*+|s\*+)\\b)"
