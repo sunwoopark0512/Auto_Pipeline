@@ -1,0 +1,33 @@
+project: v-Infinity
+stack:
+  language: python
+  framework: fastapi
+  db: supabase
+  vector_store: pgvector
+  llm_provider: openai
+  storage: s3
+modules:
+  - name: content_writer
+    input: keyword
+    output: article
+    model: gpt-4o
+  - name: seo_optimizer
+    input: article
+    output: seo_article
+    model: gpt-4o
+  - name: qa_filter
+    input: seo_article
+    output: validated_article
+    model: guardrails
+  - name: osmu_dispatcher
+    input: validated_article
+    output: multi_platform
+    model: osmu-slicer
+pipelines:
+  daily_content:
+    schedule: 0 3 * * *
+    steps:
+      - content_writer
+      - seo_optimizer
+      - qa_filter
+      - osmu_dispatcher
