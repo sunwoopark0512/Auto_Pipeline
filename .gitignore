@@ -1,2 +1,5 @@
 .env
 logs/
+coverage.xml
+.coverage
+__pycache__/
