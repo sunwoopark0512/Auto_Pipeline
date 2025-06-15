@@ -13,7 +13,7 @@ NOTION_DB_ID = os.getenv("NOTION_DB_ID")
 KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
 CACHE_PATH = os.getenv("UPLOADED_CACHE_PATH", "data/uploaded_keywords_cache.json")
-FAILED_PATH = os.getenv("FAILED_UPLOADS_PATH", "logs/failed_uploads.json")
+FAILED_UPLOAD_PATH = os.getenv("FAILED_UPLOAD_PATH", "logs/failed_uploads.json")
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
@@ -120,10 +120,10 @@ def upload_all_keywords():
     # 실패 로그 저장
     if failed_uploads:
         try:
-            os.makedirs(os.path.dirname(FAILED_PATH), exist_ok=True)
-            with open(FAILED_PATH, 'w', encoding='utf-8') as f:
+            os.makedirs(os.path.dirname(FAILED_UPLOAD_PATH), exist_ok=True)
+            with open(FAILED_UPLOAD_PATH, 'w', encoding='utf-8') as f:
                 json.dump(failed_uploads, f, ensure_ascii=False, indent=2)
-            logging.info(f"❗ 실패 항목 기록 완료: {FAILED_PATH}")
+            logging.info(f"❗ 실패 항목 기록 완료: {FAILED_UPLOAD_PATH}")
         except Exception as e:
             logging.warning(f"⚠️ 실패 로그 저장 실패: {e}")
 
