@@ -1,0 +1,2 @@
+kv_namespaces = [{ binding="KV_GATE", id="kv_gatekeeper" }]
+routes = [{ pattern="https://api.vinfinity.ai/*", script="llm_gatekeeper" }]
