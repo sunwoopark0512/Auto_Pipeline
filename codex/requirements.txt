@@ -1,0 +1,9 @@
+# 오디오 처리
+pydub>=0.25.1
+mutagen>=1.47.0
+
+# HTTP 클라이언트
+requests>=2.31.0
+
+# 유틸리티
+python-dateutil>=2.8.2
