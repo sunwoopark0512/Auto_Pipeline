@@ -1,14 +1,13 @@
 import logging
+import os
 import subprocess
 import sys
-import os
 from datetime import datetime
 
+from utils.logger import setup_logging
+
 # ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s:%(message)s'
-)
+setup_logging()
 
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
 PIPELINE_SEQUENCE = [
@@ -16,8 +15,9 @@ PIPELINE_SEQUENCE = [
     "parse_failed_gpt.py",
     "retry_failed_uploads.py",
     "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    "retry_dashboard_notifier.py",
 ]
+
 
 # ---------------------- 스크립트 실행 함수 ----------------------
 def run_script(script):
@@ -38,6 +38,7 @@ def run_script(script):
             print(result.stdout)
         return True
 
+
 # ---------------------- 전체 파이프라인 실행 ----------------------
 def run_pipeline():
     logging.info(f"🧩 파이프라인 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -55,6 +56,7 @@ def run_pipeline():
         logging.info("✅ 모든 단계 성공적으로 완료")
     else:
         logging.warning("⚠️ 일부 단계에서 실패 발생")
+
 
 # ---------------------- 진입점 ----------------------
 if __name__ == "__main__":
