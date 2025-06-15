@@ -19,6 +19,7 @@ TWITTER_MIN_TOP_RETWEET = 50
 MIN_CPC = 1000  # 원 (더미 기준)
 
 # ---------------------- 로깅 설정 ----------------------
+os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s:%(message)s'
