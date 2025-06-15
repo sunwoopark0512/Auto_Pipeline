@@ -1,2 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+build/
+
+# Local env
 .env
 logs/
+
+# Coverage files
+.coverage
+coverage.xml
