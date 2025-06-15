@@ -1,2 +1,13 @@
+# Environment files
 .env
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Generated data and logs
+data/
 logs/
+
+# Other
+.DS_Store
