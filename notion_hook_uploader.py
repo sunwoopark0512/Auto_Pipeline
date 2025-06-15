@@ -3,7 +3,7 @@ import json
 import time
 import logging
 import re
-from datetime import datetime
+from utils import create_hook_page
 from notion_client import Client
 from dotenv import load_dotenv
 
@@ -24,10 +24,6 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-
-# ---------------------- 유틸: Notion rich_text 제한 처리 ----------------------
-def truncate_text(text, max_length=2000):
-    return text if len(text) <= max_length else text[:max_length]
 
 # ---------------------- 중복 키워드 확인 함수 ----------------------
 def page_exists(keyword):
@@ -54,25 +50,6 @@ def parse_generated_text(text):
         "blog_paragraphs": blog_paragraphs,
         "video_titles": video_titles[:2] if video_titles else ["", ""]
     }
-
-# ---------------------- Notion 페이지 생성 함수 ----------------------
-def create_notion_page(item):
-    keyword = item["keyword"]
-    parsed = parse_generated_text(item.get("generated_text", ""))
-    topic = keyword.split()[0] if " " in keyword else keyword
-
-    notion.pages.create(
-        parent={"database_id": NOTION_HOOK_DB_ID},
-        properties={
-            "키워드": {"title": [{"text": {"content": keyword}}]},
-            "채널": {"select": {"name": topic}},
-            "등록일": {"date": {"start": datetime.utcnow().isoformat() + 'Z'}},
-            "후킹문1": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][0])}}]},
-            "후킹문2": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][1])}}]},
-            "블로그초안": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["blog_paragraphs"]))}}]},
-            "영상제목": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["video_titles"]))}}]}
-        }
-    )
 
 # ---------------------- 업로드 실행 함수 ----------------------
 def upload_all_hooks():
@@ -102,9 +79,14 @@ def upload_all_hooks():
             skipped += 1
             continue
 
+        parsed = parse_generated_text(item.get("generated_text", ""))
         for attempt in range(3):
             try:
-                create_notion_page(item)
+                create_hook_page(
+                    notion,
+                    NOTION_HOOK_DB_ID,
+                    {"keyword": keyword, "parsed": parsed},
+                )
                 logging.info(f"✅ 업로드 완료: {keyword}")
                 success += 1
                 break

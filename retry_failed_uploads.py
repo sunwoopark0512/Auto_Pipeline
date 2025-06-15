@@ -2,9 +2,9 @@ import os
 import json
 import time
 import logging
-from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from utils import create_hook_page
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -21,10 +21,6 @@ if not NOTION_TOKEN or not NOTION_HOOK_DB_ID:
     exit(1)
 notion = Client(auth=NOTION_TOKEN)
 
-# ---------------------- 유틸: rich_text 길이 제한 ----------------------
-def truncate_text(text, max_length=2000):
-    return text if len(text) <= max_length else text[:max_length]
-
 # ---------------------- 실패 키워드 로딩 ----------------------
 def load_failed_items():
     if not os.path.exists(FAILED_PATH):
@@ -32,33 +28,6 @@ def load_failed_items():
         return []
     with open(FAILED_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
-
-# ---------------------- Notion 페이지 재생성 ----------------------
-def create_retry_page(item):
-    keyword = item.get('keyword')
-    if not keyword:
-        raise ValueError("keyword 누락됨")
-
-    topic = keyword.split()[0] if " " in keyword else keyword
-
-    parsed = item.get("parsed") or {
-        "hook_lines": item.get("hook_lines", ["", ""]),
-        "blog_paragraphs": item.get("blog_paragraphs", ["", "", ""]),
-        "video_titles": item.get("video_titles", ["", ""])
-    }
-
-    notion.pages.create(
-        parent={"database_id": NOTION_HOOK_DB_ID},
-        properties={
-            "키워드": {"title": [{"text": {"content": keyword}}]},
-            "채널": {"select": {"name": topic}},
-            "등록일": {"date": {"start": datetime.utcnow().isoformat() + 'Z'}},
-            "후킹문1": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][0])}}]},
-            "후킹문2": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][1])}}]},
-            "블로그초안": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["blog_paragraphs"]))}}]},
-            "영상제목": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["video_titles"]))}}]}
-        }
-    )
 
 # ---------------------- 실행 함수 ----------------------
 def retry_failed_uploads():
@@ -76,7 +45,7 @@ def retry_failed_uploads():
             logging.warning("⛔ keyword 누락 항목 건너뜀")
             continue
         try:
-            create_retry_page(item)
+            create_hook_page(notion, NOTION_HOOK_DB_ID, item)
             logging.info(f"✅ 재업로드 성공: {keyword}")
             success += 1
         except Exception as e:
