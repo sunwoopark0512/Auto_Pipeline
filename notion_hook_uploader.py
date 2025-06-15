@@ -5,6 +5,7 @@ import logging
 import re
 from datetime import datetime
 from notion_client import Client
+from retry_helper import call_with_backoff
 from dotenv import load_dotenv
 
 # ---------------------- 설정 로딩 ----------------------
@@ -31,16 +32,17 @@ def truncate_text(text, max_length=2000):
 
 # ---------------------- 중복 키워드 확인 함수 ----------------------
 def page_exists(keyword):
-    try:
-        query = notion.databases.query(
-            database_id=NOTION_HOOK_DB_ID,
-            filter={"property": "키워드", "title": {"equals": keyword}},
-            page_size=1
-        )
-        return len(query.get("results", [])) > 0
-    except Exception as e:
-        logging.warning(f"⚠️ 중복 확인 실패: {keyword} - {e}")
+    query, error = call_with_backoff(
+        notion.databases.query,
+        database_id=NOTION_HOOK_DB_ID,
+        filter={"property": "키워드", "title": {"equals": keyword}},
+        page_size=1,
+        logger=logging.getLogger(__name__)
+    )
+    if error:
+        logging.warning(f"⚠️ 중복 확인 실패: {keyword} - {error}")
         return False
+    return len(query.get("results", [])) > 0
 
 # ---------------------- GPT 결과 파싱 함수 ----------------------
 def parse_generated_text(text):
@@ -61,7 +63,8 @@ def create_notion_page(item):
     parsed = parse_generated_text(item.get("generated_text", ""))
     topic = keyword.split()[0] if " " in keyword else keyword
 
-    notion.pages.create(
+    _, error = call_with_backoff(
+        notion.pages.create,
         parent={"database_id": NOTION_HOOK_DB_ID},
         properties={
             "키워드": {"title": [{"text": {"content": keyword}}]},
@@ -71,8 +74,10 @@ def create_notion_page(item):
             "후킹문2": {"rich_text": [{"text": {"content": truncate_text(parsed["hook_lines"][1])}}]},
             "블로그초안": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["blog_paragraphs"]))}}]},
             "영상제목": {"rich_text": [{"text": {"content": truncate_text('\n'.join(parsed["video_titles"]))}}]}
-        }
+        },
+        logger=logging.getLogger(__name__)
     )
+    return error
 
 # ---------------------- 업로드 실행 함수 ----------------------
 def upload_all_hooks():
@@ -102,17 +107,13 @@ def upload_all_hooks():
             skipped += 1
             continue
 
-        for attempt in range(3):
-            try:
-                create_notion_page(item)
-                logging.info(f"✅ 업로드 완료: {keyword}")
-                success += 1
-                break
-            except Exception as e:
-                logging.warning(f"🔁 재시도 {attempt+1}/3 - {keyword} | 오류: {e}")
-                time.sleep(1)
+        error = create_notion_page(item)
+        if not error:
+            logging.info(f"✅ 업로드 완료: {keyword}")
+            success += 1
         else:
-            logging.error(f"❌ 업로드 실패: {keyword}")
+            logging.error(f"❌ 업로드 실패: {keyword} - {error}")
+            item["upload_error"] = error
             failed_items.append(item)
             failed += 1
 

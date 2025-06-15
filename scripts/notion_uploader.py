@@ -4,6 +4,7 @@ import time
 import logging
 from datetime import datetime
 from notion_client import Client
+from retry_helper import call_with_backoff
 from dotenv import load_dotenv
 
 # ---------------------- 설정 로딩 ----------------------
@@ -34,22 +35,24 @@ failed_uploads = []
 def page_exists(keyword):
     if keyword in uploaded_cache:
         return True
-    try:
-        query = notion.databases.query(
-            database_id=NOTION_DB_ID,
-            filter={"property": "키워드", "title": {"equals": keyword}},
-            page_size=1
-        )
-        return len(query.get("results", [])) > 0
-    except Exception as e:
-        logging.warning(f"⚠️ 중복 확인 실패: {keyword} - {e}")
+    query, error = call_with_backoff(
+        notion.databases.query,
+        database_id=NOTION_DB_ID,
+        filter={"property": "키워드", "title": {"equals": keyword}},
+        page_size=1,
+        logger=logging.getLogger(__name__)
+    )
+    if error:
+        logging.warning(f"⚠️ 중복 확인 실패: {keyword} - {error}")
         return False
+    return len(query.get("results", [])) > 0
 
 # ---------------------- Notion 페이지 생성 함수 ----------------------
 def create_notion_page(item):
     topic = item['keyword'].split()[0]  # 첫 단어를 주제 채널로 활용
 
-    notion.pages.create(
+    _, error = call_with_backoff(
+        notion.pages.create,
         parent={"database_id": NOTION_DB_ID},
         properties={
             "키워드": {"title": [{"text": {"content": item['keyword']}}]},
@@ -61,8 +64,10 @@ def create_notion_page(item):
             "최대리트윗": {"number": item.get("top_retweet", 0)},
             "CPC(원)": {"number": item.get("cpc", 0)},
             "등록일": {"date": {"start": datetime.utcnow().isoformat() + 'Z'}}
-        }
+        },
+        logger=logging.getLogger(__name__)
     )
+    return error
 
 # ---------------------- 업로드 메인 함수 ----------------------
 def upload_all_keywords():
@@ -92,19 +97,15 @@ def upload_all_keywords():
             skipped += 1
             continue
 
-        for attempt in range(3):
-            try:
-                create_notion_page(item)
-                uploaded_cache.add(keyword)
-                logging.info(f"✅ 업로드 완료: {keyword}")
-                success += 1
-                time.sleep(UPLOAD_DELAY)
-                break
-            except Exception as e:
-                logging.warning(f"🔁 재시도 {attempt + 1}/3 - {keyword} | 오류: {e}")
-                time.sleep(1)
+        error = create_notion_page(item)
+        if not error:
+            uploaded_cache.add(keyword)
+            logging.info(f"✅ 업로드 완료: {keyword}")
+            success += 1
+            time.sleep(UPLOAD_DELAY)
         else:
-            logging.error(f"❌ 업로드 실패: {keyword} | 데이터: {item}")
+            logging.error(f"❌ 업로드 실패: {keyword} - {error} | 데이터: {item}")
+            item["upload_error"] = error
             failed_uploads.append(item)
             failed += 1
 

@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from retry_helper import call_with_backoff
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -35,18 +36,18 @@ def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
 
 # ---------------------- GPT 호출 함수 (재시도 포함) ----------------------
 def get_gpt_response(prompt, retries=3):
-    for attempt in range(retries):
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7
-            )
-            return response.choices[0].message['content']
-        except Exception as e:
-            logging.warning(f"GPT 호출 실패 {attempt + 1}/{retries}: {e}")
-            time.sleep(2)
-    return None
+    response, error = call_with_backoff(
+        openai.ChatCompletion.create,
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_retries=retries,
+        logger=logging.getLogger(__name__)
+    )
+    if error:
+        logging.error("GPT 호출 실패: %s", error)
+        return None, error
+    return response.choices[0].message['content'], None
 
 # ---------------------- 메인 실행 함수 ----------------------
 def generate_hooks():
@@ -95,7 +96,7 @@ def generate_hooks():
             growth=item.get('growth', 0),
             mentions=item.get('mentions', 0)
         )
-        response = get_gpt_response(prompt)
+        response, error = get_gpt_response(prompt)
 
         result = {
             "keyword": keyword,
@@ -116,7 +117,7 @@ def generate_hooks():
             success += 1
         else:
             result["generated_text"] = None
-            result["error"] = "GPT 응답 실패"
+            result["error"] = error
             failed_output.append(result)
             logging.error(f"❌ 생성 실패: {keyword}")
             failed += 1
