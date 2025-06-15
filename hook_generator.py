@@ -21,8 +21,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(mess
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
 def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
+    """Create the prompt text for GPT based on keyword analytics."""
     base = f"""
     주제: {keyword}
+    카테고리: {topic}
     출처: {source}
     트렌드 점수: {score}, 성장률: {growth}, 트윗 수: {mentions}
     이 정보를 기반으로:
