@@ -6,7 +6,8 @@ from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
-import random  # CPC 더미 데이터용
+import random  # 기존 더미 CPC용
+import requests
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
@@ -47,13 +48,50 @@ def generate_keyword_pairs(topic_details):
     return pairs
 
 # ---------------------- CPC 캐시 ----------------------
-cpc_cache = {}
+cpc_cache: dict[str, float | None] = {}
 
-def fetch_cpc_dummy(keyword):
-    if keyword not in cpc_cache:
-        cpc_cache[keyword] = random.randint(500, 2000)
-        logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
-    return cpc_cache[keyword]
+CPC_API_ENDPOINT = os.getenv(
+    "CPC_API_ENDPOINT",
+    "https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live",
+)
+CPC_API_USER = os.getenv("CPC_API_USER")
+CPC_API_PASSWORD = os.getenv("CPC_API_PASSWORD")
+
+from typing import Optional
+
+
+def fetch_cpc(keyword: str) -> Optional[float]:
+    """Fetch CPC value for a keyword using DataForSEO API with caching."""
+    if keyword in cpc_cache:
+        return cpc_cache[keyword]
+
+    if not CPC_API_USER or not CPC_API_PASSWORD:
+        logging.warning("CPC API 자격 증명이 없습니다. 더미 값을 사용합니다.")
+        value = random.randint(500, 2000)
+        cpc_cache[keyword] = value
+        return value
+
+    try:
+        response = requests.post(
+            CPC_API_ENDPOINT,
+            auth=(CPC_API_USER, CPC_API_PASSWORD),
+            json=[{"keywords": [keyword], "location_code": 1000, "language_code": "ko"}],
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+        value = (
+            data.get("tasks", [{}])[0]
+            .get("result", [{}])[0]
+            .get("items", [{}])[0]
+            .get("cpc")
+        )
+        cpc_cache[keyword] = value
+        return value
+    except Exception as e:  # pylint: disable=broad-except
+        logging.error("CPC API 오류 %s: %s", keyword, e)
+        cpc_cache[keyword] = None
+        return None
 
 # ---------------------- 데이터 수집 함수 ----------------------
 def fetch_google_trends(keyword, pytrends):
@@ -73,7 +111,7 @@ def fetch_google_trends(keyword, pytrends):
             "source": "GoogleTrends",
             "score": int(recent_avg),
             "growth": growth,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
         return result
@@ -97,7 +135,7 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "source": "Twitter",
             "mentions": mentions,
             "top_retweet": top_retweets[0] if top_retweets else 0,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
         return result
@@ -107,21 +145,25 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
 
 # ---------------------- 필터링 함수 ----------------------
 def filter_keywords(entries):
+    """Filter collected keyword entries handling missing data gracefully."""
     filtered = []
     for item in entries:
         source = item.get("source", "")
-        cpc = item.get("cpc", 0)
+        cpc = item.get("cpc")
+        if cpc is None:
+            logging.warning("CPC 값 누락: %s", item.get("keyword"))
+            continue
 
         if source == "GoogleTrends":
-            if (item.get("score", 0) >= GOOGLE_TRENDS_MIN_SCORE and
-                item.get("growth", 0) >= GOOGLE_TRENDS_MIN_GROWTH and
-                cpc >= MIN_CPC):
+            score = item.get("score") or 0
+            growth = item.get("growth") or 0
+            if score >= GOOGLE_TRENDS_MIN_SCORE and growth >= GOOGLE_TRENDS_MIN_GROWTH and cpc >= MIN_CPC:
                 filtered.append(item)
 
         elif source == "Twitter":
-            if (item.get("mentions", 0) >= TWITTER_MIN_MENTIONS and
-                item.get("top_retweet", 0) >= TWITTER_MIN_TOP_RETWEET and
-                cpc >= MIN_CPC):
+            mentions = item.get("mentions") or 0
+            top_retweet = item.get("top_retweet") or 0
+            if mentions >= TWITTER_MIN_MENTIONS and top_retweet >= TWITTER_MIN_TOP_RETWEET and cpc >= MIN_CPC:
                 filtered.append(item)
 
     logging.info(f"필터링된 키워드 개수: {len(filtered)}")
