@@ -1,0 +1,9 @@
+openai>=1.25.0
+notion-client>=2.2.0
+python-dotenv>=1.0.1
+requests>=2.32.3
+schedule>=1.2.1
+pandas>=2.2.2
+pytest>=8.2.0
+pytest-mock>=3.14.0
+ruff>=0.4.4
