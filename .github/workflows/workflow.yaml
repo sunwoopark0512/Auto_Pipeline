@@ -1,0 +1,150 @@
+name: Full Content Automation Workflow
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  scrape_keywords:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run keyword scraper
+        run: |
+          python scripts/idea_scraper.py
+        env:
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+
+  generate_article:
+    runs-on: ubuntu-latest
+    needs: scrape_keywords
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run RAG pipeline for article generation
+        run: |
+          python scripts/rag_pipeline.py "2025 travel trends"
+
+  grammar_seo_check:
+    runs-on: ubuntu-latest
+    needs: generate_article
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run grammar and SEO check
+        run: |
+          python scripts/grammar_seo_check.py
+        env:
+          LANGUAGE_TOOL_API_KEY: ${{ secrets.LANGUAGE_TOOL_API_KEY }}
+
+  video_generation:
+    runs-on: ubuntu-latest
+    needs: grammar_seo_check
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run video generator
+        run: |
+          python scripts/video_generator.py
+        env:
+          TTS_API_KEY: ${{ secrets.TTS_API_KEY }}
+
+  platform_adaptation:
+    runs-on: ubuntu-latest
+    needs: video_generation
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run platform adaptation
+        run: |
+          python scripts/platform_adapter.py
+        env:
+          PLATFORM_API_KEYS: ${{ secrets.PLATFORM_API_KEYS }}
+
+  publish_content:
+    runs-on: ubuntu-latest
+    needs: platform_adaptation
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Publish to WordPress
+        run: |
+          python scripts/publish_automation.py --platform wordpress
+        env:
+          WORDPRESS_API_URL: ${{ secrets.WORDPRESS_API_URL }}
+          WORDPRESS_API_KEY: ${{ secrets.WORDPRESS_API_KEY }}
+
+      - name: Publish to Twitter
+        run: |
+          python scripts/publish_automation.py --platform twitter
+        env:
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+
+      - name: Publish to YouTube
+        run: |
+          python scripts/publish_automation.py --platform youtube
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
