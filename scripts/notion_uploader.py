@@ -16,6 +16,7 @@ CACHE_PATH = os.getenv("UPLOADED_CACHE_PATH", "data/uploaded_keywords_cache.json
 FAILED_PATH = os.getenv("FAILED_UPLOADS_PATH", "logs/failed_uploads.json")
 
 # ---------------------- 로깅 설정 ----------------------
+os.makedirs("logs", exist_ok=True)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
 # ---------------------- Notion 클라이언트 ----------------------

@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 
 # ---------------------- 로깅 설정 ----------------------
+os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s:%(message)s'
