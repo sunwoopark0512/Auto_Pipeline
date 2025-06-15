@@ -12,18 +12,25 @@ logging.basicConfig(
 
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
 PIPELINE_SEQUENCE = [
+    # 키워드 수집 및 필터링
+    "keyword_auto_pipeline.py",
+    # 후킹 문장 생성
     "hook_generator.py",
-    "parse_failed_gpt.py",
+    # 생성된 결과 노션 업로드
+    "notion_hook_uploader.py",
+    # 실패한 항목 재업로드
     "retry_failed_uploads.py",
-    "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    # KPI 대시보드 갱신
+    "retry_dashboard_notifier.py",
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
+def run_script(script: str) -> bool:
+    """Run a python script located either in the repository root or in scripts/."""
+    search_paths = [script, os.path.join("scripts", script)]
+    full_path = next((p for p in search_paths if os.path.exists(p)), None)
+    if not full_path:
+        logging.error(f"❌ 파일이 존재하지 않습니다: {script}")
         return False
 
     logging.info(f"🚀 실행 중: {script}")
