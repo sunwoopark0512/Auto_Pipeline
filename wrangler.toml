@@ -1,0 +1,4 @@
+kv_namespaces = [{ binding="LLM_CACHE", id="kv_llm_cache" }]
+routes = [
+  { pattern="https://api.vinfinity.ai/*", script="geo_llm_cache" }
+]
