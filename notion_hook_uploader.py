@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
+os.makedirs("logs", exist_ok=True)
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
