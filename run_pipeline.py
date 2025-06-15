@@ -23,6 +23,9 @@ PIPELINE_SEQUENCE = [
 def run_script(script):
     full_path = os.path.join("scripts", script)
     if not os.path.exists(full_path):
+        # scripts 경로에 없으면 저장소 루트에서 시도
+        full_path = script
+    if not os.path.exists(full_path):
         logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
         return False
 
