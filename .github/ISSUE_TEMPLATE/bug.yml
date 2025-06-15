@@ -1,0 +1,15 @@
+name: Bug Report
+description: 버그를 신고해주세요
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 문제 설명
+      description: 발생한 버그를 자세히 적어주세요
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
