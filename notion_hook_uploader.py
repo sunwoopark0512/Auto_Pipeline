@@ -5,6 +5,7 @@ import logging
 import re
 from datetime import datetime
 from notion_client import Client
+from tenacity import retry, stop_after_attempt, wait_fixed
 from dotenv import load_dotenv
 
 # ---------------------- 설정 로딩 ----------------------
@@ -30,17 +31,14 @@ def truncate_text(text, max_length=2000):
     return text if len(text) <= max_length else text[:max_length]
 
 # ---------------------- 중복 키워드 확인 함수 ----------------------
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1), reraise=True)
 def page_exists(keyword):
-    try:
-        query = notion.databases.query(
-            database_id=NOTION_HOOK_DB_ID,
-            filter={"property": "키워드", "title": {"equals": keyword}},
-            page_size=1
-        )
-        return len(query.get("results", [])) > 0
-    except Exception as e:
-        logging.warning(f"⚠️ 중복 확인 실패: {keyword} - {e}")
-        return False
+    query = notion.databases.query(
+        database_id=NOTION_HOOK_DB_ID,
+        filter={"property": "키워드", "title": {"equals": keyword}},
+        page_size=1,
+    )
+    return len(query.get("results", [])) > 0
 
 # ---------------------- GPT 결과 파싱 함수 ----------------------
 def parse_generated_text(text):
@@ -56,6 +54,7 @@ def parse_generated_text(text):
     }
 
 # ---------------------- Notion 페이지 생성 함수 ----------------------
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1), reraise=True)
 def create_notion_page(item):
     keyword = item["keyword"]
     parsed = parse_generated_text(item.get("generated_text", ""))
@@ -97,22 +96,20 @@ def upload_all_hooks():
             continue
 
         total += 1
-        if page_exists(keyword):
-            logging.info(f"⏭️ 중복 스킵: {keyword}")
-            skipped += 1
-            continue
+        try:
+            if page_exists(keyword):
+                logging.info(f"⏭️ 중복 스킵: {keyword}")
+                skipped += 1
+                continue
+        except Exception as e:
+            logging.warning(f"⚠️ 중복 확인 실패: {keyword} - {e}")
 
-        for attempt in range(3):
-            try:
-                create_notion_page(item)
-                logging.info(f"✅ 업로드 완료: {keyword}")
-                success += 1
-                break
-            except Exception as e:
-                logging.warning(f"🔁 재시도 {attempt+1}/3 - {keyword} | 오류: {e}")
-                time.sleep(1)
-        else:
-            logging.error(f"❌ 업로드 실패: {keyword}")
+        try:
+            create_notion_page(item)
+            logging.info(f"✅ 업로드 완료: {keyword}")
+            success += 1
+        except Exception as e:
+            logging.error(f"❌ 업로드 실패: {keyword} - {e}")
             failed_items.append(item)
             failed += 1
 

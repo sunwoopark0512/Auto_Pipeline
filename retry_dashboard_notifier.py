@@ -3,6 +3,7 @@ import json
 import logging
 from datetime import datetime
 from notion_client import Client
+from tenacity import retry, stop_after_attempt, wait_fixed
 from dotenv import load_dotenv
 
 # ---------------------- 설정 로딩 ----------------------
@@ -43,6 +44,7 @@ def get_retry_stats():
     }
 
 # ---------------------- Notion KPI 행 추가 ----------------------
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1), reraise=False)
 def push_kpi_to_notion(kpi):
     try:
         notion.pages.create(
@@ -53,7 +55,7 @@ def push_kpi_to_notion(kpi):
                 "성공": {"number": kpi["success"]},
                 "실패": {"number": kpi["failed"]},
                 "성공률(%)": {"number": kpi["rate"]}
-            }
+            },
         )
         logging.info("📊 Notion KPI 업데이트 완료")
     except Exception as e:

@@ -4,6 +4,8 @@ import time
 import logging
 from datetime import datetime
 from notion_client import Client
+from tenacity import retry, stop_after_attempt, wait_fixed
+from tenacity import retry, stop_after_attempt, wait_fixed
 from dotenv import load_dotenv
 
 # ---------------------- 설정 로딩 ----------------------
@@ -34,6 +36,7 @@ def load_failed_items():
         return json.load(f)
 
 # ---------------------- Notion 페이지 재생성 ----------------------
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(1), reraise=True)
 def create_retry_page(item):
     keyword = item.get('keyword')
     if not keyword:
