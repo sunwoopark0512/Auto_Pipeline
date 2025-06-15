@@ -1,6 +1,6 @@
 name: Daily Notion Hook Pipeline
 
-on:
+'on':
   schedule:
     - cron: '0 0 * * *'  # 매일 오전 9시 (KST 기준)
   workflow_dispatch:
