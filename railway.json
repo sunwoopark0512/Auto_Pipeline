@@ -1,0 +1,10 @@
+{
+  "services": [
+    {
+      "name": "codex-pipeline",
+      "dockerfile": "Dockerfile",
+      "startCommand": "python run_pipeline.py"
+    }
+  ],
+  "plugins": ["postgresql"]
+}
