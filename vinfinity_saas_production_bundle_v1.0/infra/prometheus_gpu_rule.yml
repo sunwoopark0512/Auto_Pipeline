@@ -1,0 +1,6 @@
+- alert: GPUQuotaExceeded
+  expr: gpu_usage_hours_month > 100
+  for: 5m
+  labels: { severity: critical }
+  annotations:
+    summary: "GPU \uc608\uc790\ubc88 \ucd08\uacfc"
