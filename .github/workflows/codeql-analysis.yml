@@ -1,0 +1,13 @@
+name: CodeQL
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * 3"
+
+jobs:
+  analyze:
+    uses: github/codeql-action/analyze@v3
+    with:
+      languages: python
