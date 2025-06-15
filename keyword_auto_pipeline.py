@@ -52,7 +52,7 @@ cpc_cache = {}
 def fetch_cpc_dummy(keyword):
     if keyword not in cpc_cache:
         cpc_cache[keyword] = random.randint(500, 2000)
-        logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
+        logging.debug("CPC 캐시 생성: %s = %s", keyword, cpc_cache[keyword])
     return cpc_cache[keyword]
 
 # ---------------------- 데이터 수집 함수 ----------------------
@@ -61,7 +61,7 @@ def fetch_google_trends(keyword, pytrends):
         pytrends.build_payload([keyword], cat=0, timeframe='now 7-d', geo='KR')
         data = pytrends.interest_over_time()
         if data.empty or keyword not in data:
-            logging.warning(f"Google Trends: '{keyword}' 데이터 없음")
+            logging.warning("Google Trends: '%s' 데이터 없음", keyword)
             return None
 
         recent_avg = data[keyword][-3:].mean()
@@ -75,10 +75,16 @@ def fetch_google_trends(keyword, pytrends):
             "growth": growth,
             "cpc": fetch_cpc_dummy(keyword)
         }
-        logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
+        logging.info(
+            "Google Trends 수집 완료: %s score=%s growth=%s cpc=%s",
+            keyword,
+            result['score'],
+            result['growth'],
+            result['cpc'],
+        )
         return result
     except Exception as e:
-        logging.error(f"Google Trends 에러 '{keyword}': {e}")
+        logging.error("Google Trends 에러 '%s': %s", keyword, e)
         return None
 
 def fetch_twitter_metrics(keyword, max_tweets=100):
@@ -86,7 +92,7 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
         tweets_iter = sntwitter.TwitterSearchScraper(f'#{keyword} lang:ko').get_items()
         tweets = list(islice(tweets_iter, max_tweets))
         if not tweets:
-            logging.warning(f"Twitter: '{keyword}' 트윗 없음")
+            logging.warning("Twitter: '%s' 트윗 없음", keyword)
             return None
 
         top_retweets = sorted((t.retweetCount for t in tweets), reverse=True)
@@ -99,10 +105,16 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "top_retweet": top_retweets[0] if top_retweets else 0,
             "cpc": fetch_cpc_dummy(keyword)
         }
-        logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
+        logging.info(
+            "Twitter 수집 완료: %s mentions=%s top_retweet=%s cpc=%s",
+            keyword,
+            mentions,
+            result['top_retweet'],
+            result['cpc'],
+        )
         return result
     except Exception as e:
-        logging.error(f"Twitter 에러 '{keyword}': {e}")
+        logging.error("Twitter 에러 '%s': %s", keyword, e)
         return None
 
 # ---------------------- 필터링 함수 ----------------------
@@ -124,7 +136,7 @@ def filter_keywords(entries):
                 cpc >= MIN_CPC):
                 filtered.append(item)
 
-    logging.info(f"필터링된 키워드 개수: {len(filtered)}")
+    logging.info("필터링된 키워드 개수: %s", len(filtered))
     return filtered
 
 # ---------------------- 키워드별 수집 작업 ----------------------
@@ -135,14 +147,14 @@ def collect_data_for_keyword(keyword, pytrends):
         if gtrend:
             results.append(gtrend)
     except Exception as e:
-        logging.error(f"Google Trends 처리 실패: {keyword} - {e}")
+        logging.error("Google Trends 처리 실패: %s - %s", keyword, e)
 
     try:
         twitter = fetch_twitter_metrics(keyword)
         if twitter:
             results.append(twitter)
     except Exception as e:
-        logging.error(f"Twitter 처리 실패: {keyword} - {e}")
+        logging.error("Twitter 처리 실패: %s - %s", keyword, e)
 
     return results
 
@@ -161,7 +173,7 @@ def run_pipeline():
                 data = future.result()
                 all_results.extend(data)
             except Exception as e:
-                logging.error(f"{kw} 처리 중 에러: {e}")
+                logging.error("%s 처리 중 에러: %s", kw, e)
 
     filtered = filter_keywords(all_results)
     result = {
@@ -173,9 +185,9 @@ def run_pipeline():
         os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
         with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
-        logging.info(f"✅ 결과 저장 완료: {OUTPUT_PATH}")
+        logging.info("✅ 결과 저장 완료: %s", OUTPUT_PATH)
     except Exception as e:
-        logging.error(f"결과 저장 실패: {e}")
+        logging.error("결과 저장 실패: %s", e)
 
 if __name__ == "__main__":
     run_pipeline()
