@@ -44,15 +44,18 @@ def page_exists(keyword):
 
 # ---------------------- GPT 결과 파싱 함수 ----------------------
 def parse_generated_text(text):
-    hook_lines = re.findall(r"후킹 ?문장[0-9]?[\s:：\-\)]*([^\n]+)", text)
-    blog_match = re.search(r"블로그(?:\s*초안)?[\s:：\-\)]*(.*?)\n+\s*(.*?\n+.*?\n+.*?)(?:\n|$)", text, re.DOTALL)
-    video_titles = re.findall(r"(?:영상 제목|YouTube 제목)[\s:：\-\)]*[^\n]*\n?-\s*(.+)", text)
+    """Parse JSON-formatted GPT output."""
+    try:
+        json_text = re.search(r"\{.*\}", text, re.DOTALL).group(0)
+        data = json.loads(json_text)
+    except Exception as e:
+        logging.warning(f"⚠️ JSON 파싱 실패: {e}")
+        data = {}
 
-    blog_paragraphs = [p.strip() for p in blog_match[1].strip().split('\n')[:3]] if blog_match else ["", "", ""]
     return {
-        "hook_lines": hook_lines[:2] if len(hook_lines) >= 2 else ["", ""],
-        "blog_paragraphs": blog_paragraphs,
-        "video_titles": video_titles[:2] if video_titles else ["", ""]
+        "hook_lines": data.get("hook_lines", ["", ""]),
+        "blog_paragraphs": data.get("blog_paragraphs", ["", "", ""]),
+        "video_titles": data.get("video_titles", ["", ""]),
     }
 
 # ---------------------- Notion 페이지 생성 함수 ----------------------
