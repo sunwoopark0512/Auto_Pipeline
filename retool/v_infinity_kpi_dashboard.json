@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "displayName": "v-Infinity KPI Dashboard",
+  "components": [
+    {
+      "type": "table",
+      "id": "tblKPI",
+      "props": {
+        "data": "{{ queryKPI.data }}",
+        "primaryKey": "day"
+      }
+    },
+    {
+      "type": "lineChart",
+      "id": "chartViews",
+      "props": {
+        "data": "{{ queryKPI.data }}",
+        "xAxis": "day",
+        "yAxis": ["views"]
+      }
+    },
+    {
+      "type": "barChart",
+      "id": "chartCTR",
+      "props": {
+        "data": "{{ queryKPI.data }}",
+        "xAxis": "day",
+        "yAxis": ["ctr"]
+      }
+    }
+  ],
+  "queries": [
+    {
+      "id": "queryKPI",
+      "resource": "Supabase",
+      "type": "sql",
+      "template": "select * from kpi_dashboard where day >= now() - interval '30 days';"
+    }
+  ]
+}
