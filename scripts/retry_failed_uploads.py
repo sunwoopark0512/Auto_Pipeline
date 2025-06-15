@@ -10,7 +10,12 @@ from dotenv import load_dotenv
 load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
-FAILED_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_keywords.json")
+# 지원되는 경로 환경 변수: 기존 FAILED_HOOK_PATH 또는 REPARSED_OUTPUT_PATH
+# 두 변수가 모두 없으면 기본값을 사용한다.
+FAILED_PATH = os.getenv(
+    "FAILED_HOOK_PATH",
+    os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords.json")
+)
 RETRY_DELAY = float(os.getenv("RETRY_DELAY", "0.5"))
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
@@ -98,3 +103,4 @@ def retry_failed_uploads():
 
 if __name__ == "__main__":
     retry_failed_uploads()
+
