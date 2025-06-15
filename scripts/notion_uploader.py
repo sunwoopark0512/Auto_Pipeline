@@ -13,7 +13,7 @@ NOTION_DB_ID = os.getenv("NOTION_DB_ID")
 KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
 CACHE_PATH = os.getenv("UPLOADED_CACHE_PATH", "data/uploaded_keywords_cache.json")
-FAILED_PATH = os.getenv("FAILED_UPLOADS_PATH", "logs/failed_uploads.json")
+FAILED_ITEMS_PATH = os.getenv("FAILED_ITEMS_PATH", "logs/failed_uploads.json")
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
@@ -28,7 +28,7 @@ if os.path.exists(CACHE_PATH):
 else:
     uploaded_cache = set()
 
-failed_uploads = []
+failed_items = []
 
 # ---------------------- 중복 키워드 확인 함수 ----------------------
 def page_exists(keyword):
@@ -105,7 +105,7 @@ def upload_all_keywords():
                 time.sleep(1)
         else:
             logging.error(f"❌ 업로드 실패: {keyword} | 데이터: {item}")
-            failed_uploads.append(item)
+            failed_items.append(item)
             failed += 1
 
     # 캐시 저장
@@ -118,12 +118,12 @@ def upload_all_keywords():
         logging.warning(f"⚠️ 캐시 저장 실패: {e}")
 
     # 실패 로그 저장
-    if failed_uploads:
+    if failed_items:
         try:
-            os.makedirs(os.path.dirname(FAILED_PATH), exist_ok=True)
-            with open(FAILED_PATH, 'w', encoding='utf-8') as f:
-                json.dump(failed_uploads, f, ensure_ascii=False, indent=2)
-            logging.info(f"❗ 실패 항목 기록 완료: {FAILED_PATH}")
+            os.makedirs(os.path.dirname(FAILED_ITEMS_PATH), exist_ok=True)
+            with open(FAILED_ITEMS_PATH, 'w', encoding='utf-8') as f:
+            json.dump(failed_items, f, ensure_ascii=False, indent=2)
+            logging.info(f"❗ 실패 항목 기록 완료: {FAILED_ITEMS_PATH}")
         except Exception as e:
             logging.warning(f"⚠️ 실패 로그 저장 실패: {e}")
 
