@@ -12,22 +12,32 @@ logging.basicConfig(
 
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
 PIPELINE_SEQUENCE = [
+    "keyword_auto_pipeline.py",
     "hook_generator.py",
-    "parse_failed_gpt.py",
+    "notion_hook_uploader.py",
     "retry_failed_uploads.py",
-    "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    "retry_dashboard_notifier.py",
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
+def run_script(script: str) -> bool:
+    """주어진 스크립트를 실행한다.
+
+    우선 ``scripts/`` 폴더에서 스크립트를 찾고, 없으면 프로젝트 루트에서
+    검색한다. 두 위치 모두 존재하지 않으면 ``False`` 를 반환한다.
+    """
+
+    candidate_paths = [os.path.join("scripts", script), script]
+    script_path = next((p for p in candidate_paths if os.path.exists(p)), None)
+
+    if script_path is None:
+        logging.error(
+            f"❌ 파일이 존재하지 않습니다: {candidate_paths[0]} 또는 {candidate_paths[1]}"
+        )
         return False
 
     logging.info(f"🚀 실행 중: {script}")
-    result = subprocess.run([sys.executable, full_path], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, script_path], capture_output=True, text=True)
 
     if result.returncode != 0:
         logging.error(f"❌ 실패: {script}\n{result.stderr}")
