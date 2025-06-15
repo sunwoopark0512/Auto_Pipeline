@@ -1,0 +1,7 @@
+global:
+  prometheus:
+    enabled: false          # 외부 Prometheus 사용
+kubecostProductConfigs:
+  productKeySecretName: KUBECOST_KEY
+  gpuUsageMetrics: true
+  networkCosts: true
