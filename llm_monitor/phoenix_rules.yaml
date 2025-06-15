@@ -1,0 +1,12 @@
+rules:
+  - id: high_toxicity
+    description: "Toxicity > 0.7"
+    filter: "event_type == 'completion'"
+    condition: "metrics.toxicity > 0.7"
+    severity: warning
+
+  - id: semantic_drift
+    description: "Cosine drift > 0.25"
+    filter: "event_type == 'completion'"
+    condition: "metrics.embedding_cosine_drift > 0.25"
+    severity: critical
