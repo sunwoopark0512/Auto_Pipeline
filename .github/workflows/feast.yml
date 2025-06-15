@@ -1,0 +1,20 @@
+name: Feast Update
+on:
+  push:
+    paths: ["feature_store/**"]
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Feast
+        run: pip install feast[redis,kafka]
+      - name: Build registry
+        run: |
+          cd feature_store/feature_repo
+          feast apply
+      - name: Deploy ingest worker
+        uses: render-examples/action-render-deploy@v1
+        with:
+          api-key: ${{ secrets.RENDER_API_KEY }}
+          service-id: ${{ secrets.RENDER_FEAST_INGEST_ID }}
