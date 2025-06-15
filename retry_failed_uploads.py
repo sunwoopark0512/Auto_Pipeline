@@ -95,6 +95,4 @@ def retry_failed_uploads():
     # 요약
     logging.info("📦 재시도 업로드 요약")
     logging.info(f"성공: {success} | 실패 유지: {failed}")
-
-if __name__ == "__main__":
-    retry_failed_uploads()
+retry_failed_uploads()
