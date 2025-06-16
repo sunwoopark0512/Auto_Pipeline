@@ -15,11 +15,12 @@ PIPELINE_SEQUENCE = [
     "keyword_auto_pipeline.py",
     "notion_uploader.py",
     "hook_generator.py",
-    "notion_hook_uploader.py",  # Keep this from main branch as it seems to be a new addition
+    "notion_hook_uploader.py",  # Keep this from main branch
     "retry_failed_uploads.py",
     "retry_dashboard_notifier.py",
 ]
 
+# Define search directories for scripts
 SCRIPTS_DIRS = [
     os.path.dirname(os.path.abspath(__file__)),
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"),
