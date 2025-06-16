@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from utils.encryption_util import EncryptionUtil
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -14,6 +15,14 @@ NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
+
+# optional encryption
+try:
+    encryption_util = EncryptionUtil()
+    ENCRYPT_ENABLED = True
+except Exception:
+    encryption_util = None
+    ENCRYPT_ENABLED = False
 
 notion = Client(auth=NOTION_TOKEN)
 logging.basicConfig(
@@ -81,8 +90,15 @@ def upload_all_hooks():
         return
 
     try:
-        with open(HOOK_JSON_PATH, 'r', encoding='utf-8') as f:
-            hooks = json.load(f)
+        mode = 'rb' if ENCRYPT_ENABLED else 'r'
+        with open(HOOK_JSON_PATH, mode) as f:
+            raw = f.read()
+            if ENCRYPT_ENABLED:
+                hooks = json.loads(encryption_util.decrypt(raw).decode('utf-8'))
+            else:
+                if isinstance(raw, bytes):
+                    raw = raw.decode('utf-8')
+                hooks = json.loads(raw)
     except Exception as e:
         logging.error(f"❗ 후킹 JSON 파일 읽기 오류: {e}")
         return
