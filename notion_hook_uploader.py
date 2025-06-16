@@ -45,14 +45,37 @@ def page_exists(keyword):
 # ---------------------- GPT 결과 파싱 함수 ----------------------
 def parse_generated_text(text):
     hook_lines = re.findall(r"후킹 ?문장[0-9]?[\s:：\-\)]*([^\n]+)", text)
-    blog_match = re.search(r"블로그(?:\s*초안)?[\s:：\-\)]*(.*?)\n+\s*(.*?\n+.*?\n+.*?)(?:\n|$)", text, re.DOTALL)
-    video_titles = re.findall(r"(?:영상 제목|YouTube 제목)[\s:：\-\)]*[^\n]*\n?-\s*(.+)", text)
+    blog_match = re.search(
+        r"블로그(?:\s*초안)?[\s:：\-\)]*(.*?)\n+\s*(.*?\n+.*?\n+.*?)(?:\n|$)",
+        text,
+        re.DOTALL,
+    )
+    video_titles = re.findall(
+        r"(?:영상 제목|YouTube 제목)[\s:：\-\)]*[^\n]*\n?-\s*(.+)", text
+    )
 
-    blog_paragraphs = [p.strip() for p in blog_match[1].strip().split('\n')[:3]] if blog_match else ["", "", ""]
+    hooks = [
+        hook_lines[0].strip() if len(hook_lines) > 0 else "",
+        hook_lines[1].strip() if len(hook_lines) > 1 else "",
+    ]
+
+    if blog_match:
+        blog_text = f"{blog_match.group(1)}\n{blog_match.group(2)}".strip()
+        blog_paragraphs = [p.strip() for p in blog_text.split("\n")[:3]]
+        while len(blog_paragraphs) < 3:
+            blog_paragraphs.append("")
+    else:
+        blog_paragraphs = ["", "", ""]
+
+    titles = [
+        video_titles[0].strip() if len(video_titles) > 0 else "",
+        video_titles[1].strip() if len(video_titles) > 1 else "",
+    ]
+
     return {
-        "hook_lines": hook_lines[:2] if len(hook_lines) >= 2 else ["", ""],
+        "hook_lines": hooks,
         "blog_paragraphs": blog_paragraphs,
-        "video_titles": video_titles[:2] if video_titles else ["", ""]
+        "video_titles": titles,
     }
 
 # ---------------------- Notion 페이지 생성 함수 ----------------------
