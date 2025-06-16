@@ -1,63 +1,71 @@
+import os
 import sys
 import types
 import importlib
-import os
-
 import pytest
 
-
-def import_hook_module():
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    dummy_dotenv = types.ModuleType('dotenv')
-    dummy_dotenv.load_dotenv = lambda *a, **k: None
-    sys.modules['dotenv'] = dummy_dotenv
-    sys.modules['openai'] = types.ModuleType('openai')
+# Fixture to load hook_generator with stubbed dependencies
+@pytest.fixture
+def hook_generator_module(monkeypatch):
+    monkeypatch.syspath_prepend(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    monkeypatch.setitem(sys.modules, 'openai', types.ModuleType('openai'))
+    dotenv = types.ModuleType('dotenv')
+    dotenv.load_dotenv = lambda *a, **k: None
+    monkeypatch.setitem(sys.modules, 'dotenv', dotenv)
+    if 'hook_generator' in sys.modules:
+        del sys.modules['hook_generator']
     return importlib.import_module('hook_generator')
 
-
-def import_notion_module():
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    os.makedirs('logs', exist_ok=True)
-    dummy_nc = types.ModuleType('notion_client')
+# Fixture to load notion_hook_uploader with stubbed dependencies
+@pytest.fixture
+def notion_hook_module(monkeypatch, tmp_path):
+    monkeypatch.syspath_prepend(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    monkeypatch.setitem(sys.modules, 'openai', types.ModuleType('openai'))
+    dotenv = types.ModuleType('dotenv')
+    dotenv.load_dotenv = lambda *a, **k: None
+    monkeypatch.setitem(sys.modules, 'dotenv', dotenv)
+    mod_nc = types.ModuleType('notion_client')
     class DummyClient:
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *a, **k):
             pass
-    dummy_nc.Client = DummyClient
-    sys.modules['notion_client'] = dummy_nc
-    dummy_dotenv = types.ModuleType('dotenv')
-    dummy_dotenv.load_dotenv = lambda *a, **k: None
-    sys.modules['dotenv'] = dummy_dotenv
+    mod_nc.Client = DummyClient
+    monkeypatch.setitem(sys.modules, 'notion_client', mod_nc)
+    os.makedirs('logs', exist_ok=True)
+    if 'notion_hook_uploader' in sys.modules:
+        del sys.modules['notion_hook_uploader']
     return importlib.import_module('notion_hook_uploader')
 
-
-def test_generate_hook_prompt_basic():
-    module = import_hook_module()
-    prompt = module.generate_hook_prompt(
-        keyword='테스트 키워드',
-        topic='테스트',
-        source='Twitter',
-        score=80,
-        growth=1.5,
-        mentions=100,
-    )
-    assert '주제: 테스트 키워드' in prompt
-    assert '출처: Twitter' in prompt
-    assert '트렌드 점수: 80' in prompt
+def test_generate_hook_prompt_inserts_values(hook_generator_module):
+    prompt = hook_generator_module.generate_hook_prompt('키워드', 'topic', '트위터', 10, 5, 100)
+    assert '주제: 키워드' in prompt
+    assert '출처: 트위터' in prompt
+    assert '트렌드 점수: 10' in prompt
+    assert '성장률: 5' in prompt
+    assert '트윗 수: 100' in prompt
 
 
-def test_parse_generated_text_extraction():
-    module = import_notion_module()
+def test_parse_generated_text_parses_sections(notion_hook_module):
     text = (
-        "후킹 문장1: A\n"
-        "후킹 문장2: B\n"
-        "블로그 초안: 서론\n"
-        "첫 문단\n"
-        "둘째 문단\n"
-        "셋째 문단\n"
-        "영상 제목: title1\n"
-        "- title2\n"
+        '후킹문장1: Hook1\n'
+        '후킹 문장2 - Hook2\n'
+        '블로그 초안:\n'
+        'Paragraph1\n'
+        'Paragraph2\n'
+        'Paragraph3\n'
+        '영상 제목: Title1\n'
+        '- Title2\n'
+        'YouTube 제목 - Title3'
     )
-    result = module.parse_generated_text(text)
-    assert result['hook_lines'] == ['A', 'B']
-    assert result['blog_paragraphs'][0] == '서론'
-    assert result['video_titles'][0] == 'title2'
+    parsed = notion_hook_module.parse_generated_text(text)
+    assert parsed['hook_lines'] == ['Hook1', 'Hook2']
+    assert parsed['blog_paragraphs'][0] == 'Paragraph1'
+    assert parsed['video_titles'] == ['Title2', 'Title3']
+
+
+def test_parse_generated_text_empty(notion_hook_module):
+    parsed = notion_hook_module.parse_generated_text('')
+    assert parsed == {
+        'hook_lines': ['', ''],
+        'blog_paragraphs': ['', '', ''],
+        'video_titles': ['', '']
+    }
