@@ -21,7 +21,14 @@ PIPELINE_SEQUENCE = [
 
 # ---------------------- 스크립트 실행 함수 ----------------------
 def run_script(script):
-    full_path = os.path.join("scripts", script)
+    # 스크립트가 경로를 포함하지 않으면 현재 디렉터리 우선 검색 후 scripts 폴더 확인
+    if os.path.isabs(script) or os.path.dirname(script):
+        full_path = script
+    elif os.path.exists(script):
+        full_path = script
+    else:
+        full_path = os.path.join("scripts", script)
+
     if not os.path.exists(full_path):
         logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
         return False
