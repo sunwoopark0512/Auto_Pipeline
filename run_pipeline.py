@@ -15,7 +15,7 @@ PIPELINE_SEQUENCE = [
     "keyword_auto_pipeline.py",
     "notion_uploader.py",
     "hook_generator.py",
-    "notion_hook_uploader.py",
+    "notion_hook_uploader.py",  # Keep this from main branch as it seems to be a new addition
     "retry_failed_uploads.py",
     "retry_dashboard_notifier.py",
 ]
@@ -28,7 +28,7 @@ SCRIPTS_DIRS = [
 # ---------------------- 스크립트 실행 함수 ----------------------
 def run_script(script: str) -> bool:
     """Execute a Python script located either at repo root or within scripts/"""
-    possible_paths = [script, os.path.join("scripts", script)]
+    possible_paths = [os.path.join(dir_path, script) for dir_path in SCRIPTS_DIRS]
     full_path = next((p for p in possible_paths if os.path.exists(p)), None)
 
     if not full_path:
