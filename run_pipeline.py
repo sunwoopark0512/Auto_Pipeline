@@ -13,15 +13,19 @@ logging.basicConfig(
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
 PIPELINE_SEQUENCE = [
     "hook_generator.py",
-    "parse_failed_gpt.py",
     "retry_failed_uploads.py",
-    "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    "retry_dashboard_notifier.py",
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
 def run_script(script):
-    full_path = os.path.join("scripts", script)
+    base_dir = os.path.dirname(__file__)
+    # 우선 현재 디렉터리에서 스크립트를 찾습니다.
+    full_path = os.path.join(base_dir, script)
+    if not os.path.exists(full_path):
+        # 없으면 scripts 하위 디렉터리에서 다시 시도합니다.
+        full_path = os.path.join(base_dir, "scripts", script)
+
     if not os.path.exists(full_path):
         logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
         return False
