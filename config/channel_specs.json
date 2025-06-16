@@ -1,0 +1,43 @@
+{
+  "YouTube": {
+    "max_title_length": 100,
+    "max_description_length": 5000,
+    "video_resolution": "1920x1080",
+    "hashtag_limit": 15,
+    "cpm": 5.0,
+    "cpa": 1.2,
+    "cpc": 0.2
+  },
+  "Blog": {
+    "max_title_length": 60,
+    "max_content_length": 10000,
+    "image_size": "1200x630",
+    "hashtag_limit": 10,
+    "cpm": 3.0,
+    "cpa": 0.8,
+    "cpc": 0.1
+  },
+  "Instagram": {
+    "caption_length": 2200,
+    "image_size": "1080x1080",
+    "hashtag_limit": 30,
+    "cpm": 4.5,
+    "cpa": 1.0,
+    "cpc": 0.15
+  },
+  "Twitter": {
+    "tweet_length": 280,
+    "image_size": "1200x675",
+    "hashtag_limit": 3,
+    "cpm": 2.5,
+    "cpa": 0.5,
+    "cpc": 0.05
+  },
+  "Email": {
+    "subject_length": 78,
+    "body_length": 5000,
+    "cpm": 6.0,
+    "cpa": 2.0,
+    "cpc": 0.25
+  }
+}
