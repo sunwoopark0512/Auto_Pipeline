@@ -6,6 +6,35 @@ from datetime import datetime
 from dotenv import load_dotenv
 import openai
 
+# ---------------------- 출력 포맷 변환 함수 ----------------------
+def convert_to_html(hook_lines, blog_paragraphs, video_titles):
+    """Convert generated text components to simple HTML."""
+    html_parts = ["<h2>Hooking Sentences</h2>", "<ul>"]
+    html_parts += [f"<li>{line}</li>" for line in hook_lines]
+    html_parts += ["</ul>", "<h2>Blog Draft</h2>"]
+    html_parts += [f"<p>{para}</p>" for para in blog_paragraphs]
+    html_parts += ["<h2>YouTube Titles</h2>", "<ul>"]
+    html_parts += [f"<li>{title}</li>" for title in video_titles]
+    html_parts.append("</ul>")
+    return "\n".join(html_parts)
+
+
+def convert_to_markdown(hook_lines, blog_paragraphs, video_titles):
+    """Convert generated text components to Markdown."""
+    md = ["## Hooking Sentences"]
+    md += [f"- {line}" for line in hook_lines]
+    md.append("\n## Blog Draft")
+    md += blog_paragraphs
+    md.append("## YouTube Titles")
+    md += [f"- {title}" for title in video_titles]
+    return "\n".join(md)
+
+
+def convert_to_sns_summary(hook_lines, video_titles, limit=280):
+    """Create a short summary suitable for SNS posting."""
+    summary = " / ".join(hook_lines + video_titles)
+    return summary[:limit]
+
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
 KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
@@ -105,11 +134,17 @@ def generate_hooks():
 
         if response:
             lines = response.split('\n')
+            hook_lines = lines[0:2]
+            blog_paragraphs = lines[2:5]
+            video_titles = lines[5:]
             result.update({
-                "hook_lines": lines[0:2],
-                "blog_paragraphs": lines[2:5],
-                "video_titles": lines[5:],
-                "generated_text": response
+                "hook_lines": hook_lines,
+                "blog_paragraphs": blog_paragraphs,
+                "video_titles": video_titles,
+                "generated_text": response,
+                "html_format": convert_to_html(hook_lines, blog_paragraphs, video_titles),
+                "markdown_format": convert_to_markdown(hook_lines, blog_paragraphs, video_titles),
+                "sns_summary": convert_to_sns_summary(hook_lines, video_titles)
             })
             new_output.append(result)
             logging.info(f"✅ 생성 완료: {keyword}")
