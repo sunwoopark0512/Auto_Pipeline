@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from llm_monitor.phoenix_init import instrument_openai  # auto-imports & patches
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
