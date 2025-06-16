@@ -5,12 +5,12 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from common import FAILED_HOOK_PATH
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
 KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
 HOOK_OUTPUT_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
-FAILED_HOOK_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_hooks.json")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_DELAY = float(os.getenv("API_DELAY", "1.0"))
 
