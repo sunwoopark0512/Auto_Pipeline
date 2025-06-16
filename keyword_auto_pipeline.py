@@ -6,17 +6,22 @@ from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
-import random  # CPC 더미 데이터용
+from functools import lru_cache
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
 OUTPUT_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
+CPC_DATA_PATH = os.getenv("CPC_DATA_PATH", "config/cpc.json")
 
 GOOGLE_TRENDS_MIN_SCORE = 60
 GOOGLE_TRENDS_MIN_GROWTH = 1.3
 TWITTER_MIN_MENTIONS = 30
 TWITTER_MIN_TOP_RETWEET = 50
-MIN_CPC = 1000  # 원 (더미 기준)
+MIN_CPC = 1000  # 원 (기본 기준)
+YOUTUBE_MIN_VIEWS = 10000
+YOUTUBE_MIN_LIKES = 500
+INSTAGRAM_MIN_LIKES = 300
+INSTAGRAM_MIN_COMMENTS = 20
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
@@ -46,14 +51,22 @@ def generate_keyword_pairs(topic_details):
             pairs.append(f"{topic} {sub}")
     return pairs
 
-# ---------------------- CPC 캐시 ----------------------
-cpc_cache = {}
+# ---------------------- CPC 로더 ----------------------
 
-def fetch_cpc_dummy(keyword):
-    if keyword not in cpc_cache:
-        cpc_cache[keyword] = random.randint(500, 2000)
-        logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
-    return cpc_cache[keyword]
+@lru_cache(maxsize=1)
+def load_cpc_data():
+    if os.path.exists(CPC_DATA_PATH):
+        try:
+            with open(CPC_DATA_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logging.warning(f"CPC 데이터 로드 실패: {e}")
+    return {}
+
+
+def fetch_cpc(keyword):
+    data = load_cpc_data()
+    return data.get(keyword, 0)
 
 # ---------------------- 데이터 수집 함수 ----------------------
 def fetch_google_trends(keyword, pytrends):
@@ -73,7 +86,7 @@ def fetch_google_trends(keyword, pytrends):
             "source": "GoogleTrends",
             "score": int(recent_avg),
             "growth": growth,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
         return result
@@ -97,13 +110,46 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "source": "Twitter",
             "mentions": mentions,
             "top_retweet": top_retweets[0] if top_retweets else 0,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
         return result
     except Exception as e:
         logging.error(f"Twitter 에러 '{keyword}': {e}")
         return None
+
+def fetch_youtube_trends(keyword):
+    """옵션: 로컬 JSON 파일에서 YouTube 트렌드 정보를 읽어옵니다."""
+    path = os.getenv("YOUTUBE_TRENDS_PATH", "data/youtube_trends.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            entry = data.get(keyword)
+            if entry:
+                entry.update({"keyword": keyword, "source": "YouTube", "cpc": fetch_cpc(keyword)})
+                logging.info(f"YouTube 데이터 로드: {keyword}")
+                return entry
+        except Exception as e:
+            logging.warning(f"YouTube 데이터 읽기 실패 {keyword}: {e}")
+    return None
+
+
+def fetch_instagram_trends(keyword):
+    """옵션: 로컬 JSON 파일에서 Instagram 트렌드 정보를 읽어옵니다."""
+    path = os.getenv("INSTAGRAM_TRENDS_PATH", "data/instagram_trends.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            entry = data.get(keyword)
+            if entry:
+                entry.update({"keyword": keyword, "source": "Instagram", "cpc": fetch_cpc(keyword)})
+                logging.info(f"Instagram 데이터 로드: {keyword}")
+                return entry
+        except Exception as e:
+            logging.warning(f"Instagram 데이터 읽기 실패 {keyword}: {e}")
+    return None
 
 # ---------------------- 필터링 함수 ----------------------
 def filter_keywords(entries):
@@ -121,6 +167,18 @@ def filter_keywords(entries):
         elif source == "Twitter":
             if (item.get("mentions", 0) >= TWITTER_MIN_MENTIONS and
                 item.get("top_retweet", 0) >= TWITTER_MIN_TOP_RETWEET and
+                cpc >= MIN_CPC):
+                filtered.append(item)
+
+        elif source == "YouTube":
+            if (item.get("views", 0) >= YOUTUBE_MIN_VIEWS and
+                item.get("likes", 0) >= YOUTUBE_MIN_LIKES and
+                cpc >= MIN_CPC):
+                filtered.append(item)
+
+        elif source == "Instagram":
+            if (item.get("likes", 0) >= INSTAGRAM_MIN_LIKES and
+                item.get("comments", 0) >= INSTAGRAM_MIN_COMMENTS and
                 cpc >= MIN_CPC):
                 filtered.append(item)
 
@@ -143,6 +201,22 @@ def collect_data_for_keyword(keyword, pytrends):
             results.append(twitter)
     except Exception as e:
         logging.error(f"Twitter 처리 실패: {keyword} - {e}")
+
+    if os.getenv("ENABLE_YOUTUBE", "0") == "1":
+        try:
+            yt = fetch_youtube_trends(keyword)
+            if yt:
+                results.append(yt)
+        except Exception as e:
+            logging.error(f"YouTube 처리 실패: {keyword} - {e}")
+
+    if os.getenv("ENABLE_INSTAGRAM", "0") == "1":
+        try:
+            ig = fetch_instagram_trends(keyword)
+            if ig:
+                results.append(ig)
+        except Exception as e:
+            logging.error(f"Instagram 처리 실패: {keyword} - {e}")
 
     return results
 
