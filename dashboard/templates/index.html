@@ -1,0 +1,10 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+  <section>
+    <h1 class="mb-4">Pipeline Dashboard</h1>
+    <form method="post" action="{{ url_for('run_pipeline') }}" class="mb-3">
+      <button type="submit" class="btn btn-primary" aria-label="Run pipeline">Run Pipeline</button>
+    </form>
+  </section>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+  <h1 class="mb-4">Generated Hooks</h1>
+  <table class="table table-striped" aria-label="Generated hooks">
+    <thead>
+      <tr>
+        <th scope="col">Keyword</th>
+        <th scope="col">Hook Lines</th>
+        <th scope="col">Blog Draft</th>
+        <th scope="col">Video Titles</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in hooks %}
+      <tr>
+        <td>{{ item.keyword }}</td>
+        <td>
+          <ul>
+          {% for line in item.hook_lines %}
+            <li>{{ line }}</li>
+          {% endfor %}
+          </ul>
+        </td>
+        <td>
+          {% for para in item.blog_paragraphs %}
+            <p>{{ para }}</p>
+          {% endfor %}
+        </td>
+        <td>
+          <ul>
+          {% for t in item.video_titles %}
+            <li>{{ t }}</li>
+          {% endfor %}
+          </ul>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
