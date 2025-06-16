@@ -6,13 +6,14 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from utils import truncate_text, page_exists
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
-FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
+FAILED_HOOK_PATH = os.getenv("FAILED_HOOK_PATH", "data/upload_failed_hooks.json")
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
 
 notion = Client(auth=NOTION_TOKEN)
@@ -26,21 +27,9 @@ logging.basicConfig(
 )
 
 # ---------------------- 유틸: Notion rich_text 제한 처리 ----------------------
-def truncate_text(text, max_length=2000):
-    return text if len(text) <= max_length else text[:max_length]
-
 # ---------------------- 중복 키워드 확인 함수 ----------------------
-def page_exists(keyword):
-    try:
-        query = notion.databases.query(
-            database_id=NOTION_HOOK_DB_ID,
-            filter={"property": "키워드", "title": {"equals": keyword}},
-            page_size=1
-        )
-        return len(query.get("results", [])) > 0
-    except Exception as e:
-        logging.warning(f"⚠️ 중복 확인 실패: {keyword} - {e}")
-        return False
+def page_exists_cached(keyword):
+    return page_exists(notion, NOTION_HOOK_DB_ID, keyword)
 
 # ---------------------- GPT 결과 파싱 함수 ----------------------
 def parse_generated_text(text):
@@ -97,7 +86,7 @@ def upload_all_hooks():
             continue
 
         total += 1
-        if page_exists(keyword):
+        if page_exists_cached(keyword):
             logging.info(f"⏭️ 중복 스킵: {keyword}")
             skipped += 1
             continue
@@ -119,10 +108,10 @@ def upload_all_hooks():
         time.sleep(UPLOAD_DELAY)
 
     if failed_items:
-        os.makedirs(os.path.dirname(FAILED_OUTPUT_PATH), exist_ok=True)
-        with open(FAILED_OUTPUT_PATH, 'w', encoding='utf-8') as f:
+        os.makedirs(os.path.dirname(FAILED_HOOK_PATH), exist_ok=True)
+        with open(FAILED_HOOK_PATH, 'w', encoding='utf-8') as f:
             json.dump(failed_items, f, ensure_ascii=False, indent=2)
-        logging.info(f"❗ 실패 항목 저장됨: {FAILED_OUTPUT_PATH}")
+        logging.info(f"❗ 실패 항목 저장됨: {FAILED_HOOK_PATH}")
 
     logging.info("📊 후킹 업로드 요약")
     logging.info(f"총 항목: {total} | 성공: {success} | 중복스킵: {skipped} | 실패: {failed}")
