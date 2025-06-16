@@ -11,6 +11,7 @@ load_dotenv()
 KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
 HOOK_OUTPUT_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_HOOK_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_hooks.json")
+POLICY_PATH = os.getenv("POLICY_PATH", "config/content_policies.json")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_DELAY = float(os.getenv("API_DELAY", "1.0"))
 
@@ -18,6 +19,26 @@ openai.api_key = OPENAI_API_KEY
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+
+# ---------------------- 정책 로딩 및 검증 함수 ----------------------
+def load_policies():
+    if not os.path.exists(POLICY_PATH):
+        logging.warning(f"콘텐츠 정책 파일이 존재하지 않습니다: {POLICY_PATH}")
+        return {}
+    try:
+        with open(POLICY_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        logging.warning(f"정책 로딩 실패: {e}")
+        return {}
+
+
+def validate_content(platform, text, policies):
+    terms = policies.get(platform, [])
+    for term in terms:
+        if term in text:
+            return False, term
+    return True, None
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
 def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
@@ -62,6 +83,8 @@ def generate_hooks():
         logging.error(f"❗ 키워드 파일 읽기 오류: {e}")
         return
 
+    policies = load_policies()
+
     existing = {}
     if os.path.exists(HOOK_OUTPUT_PATH):
         try:
@@ -104,16 +127,30 @@ def generate_hooks():
         }
 
         if response:
-            lines = response.split('\n')
-            result.update({
-                "hook_lines": lines[0:2],
-                "blog_paragraphs": lines[2:5],
-                "video_titles": lines[5:],
-                "generated_text": response
-            })
-            new_output.append(result)
-            logging.info(f"✅ 생성 완료: {keyword}")
-            success += 1
+            violated = None
+            for platform in ["shortform", "blog", "youtube"]:
+                valid, term = validate_content(platform, response, policies)
+                if not valid:
+                    violated = f"{platform}:{term}"
+                    break
+
+            if violated:
+                result["generated_text"] = response
+                result["error"] = f"Policy violation - {violated}"
+                failed_output.append(result)
+                logging.error(f"🚫 정책 위반: {keyword} - {violated}")
+                failed += 1
+            else:
+                lines = response.split('\n')
+                result.update({
+                    "hook_lines": lines[0:2],
+                    "blog_paragraphs": lines[2:5],
+                    "video_titles": lines[5:],
+                    "generated_text": response
+                })
+                new_output.append(result)
+                logging.info(f"✅ 생성 완료: {keyword}")
+                success += 1
         else:
             result["generated_text"] = None
             result["error"] = "GPT 응답 실패"
