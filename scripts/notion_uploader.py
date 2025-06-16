@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from content_checker import detect_violation
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -90,6 +91,13 @@ def upload_all_keywords():
         if page_exists(keyword):
             logging.info(f"⏭️ 중복 스킵: {keyword}")
             skipped += 1
+            continue
+
+        violation = detect_violation(keyword, platform="notion")
+        if violation:
+            logging.error(f"⛔ 업로드 차단: {keyword} - {violation}")
+            failed_uploads.append(item)
+            failed += 1
             continue
 
         for attempt in range(3):

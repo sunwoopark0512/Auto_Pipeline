@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from content_checker import check_parsed_content
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -56,9 +57,10 @@ def parse_generated_text(text):
     }
 
 # ---------------------- Notion 페이지 생성 함수 ----------------------
-def create_notion_page(item):
+def create_notion_page(item, parsed=None):
     keyword = item["keyword"]
-    parsed = parse_generated_text(item.get("generated_text", ""))
+    if parsed is None:
+        parsed = parse_generated_text(item.get("generated_text", ""))
     topic = keyword.split()[0] if " " in keyword else keyword
 
     notion.pages.create(
@@ -102,9 +104,19 @@ def upload_all_hooks():
             skipped += 1
             continue
 
+        parsed = parse_generated_text(item.get("generated_text", ""))
+        violation, bad_text = check_parsed_content(parsed)
+        if violation:
+            logging.error(
+                f"⛔ 규정 위반: {keyword} - {violation} in '{bad_text}'"
+            )
+            failed_items.append(item)
+            failed += 1
+            continue
+
         for attempt in range(3):
             try:
-                create_notion_page(item)
+                create_notion_page(item, parsed)
                 logging.info(f"✅ 업로드 완료: {keyword}")
                 success += 1
                 break
