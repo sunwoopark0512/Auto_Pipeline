@@ -12,25 +12,30 @@ logging.basicConfig(
 
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
 PIPELINE_SEQUENCE = [
+    "keyword_auto_pipeline.py",
+    "notion_uploader.py",
     "hook_generator.py",
+    "notion_hook_uploader.py",  # Keep this from main branch as it seems to be a new addition
     "retry_failed_uploads.py",
     "retry_dashboard_notifier.py",
 ]
 
-# ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    base_dir = os.path.dirname(__file__)
-    # 우선 현재 디렉터리에서 스크립트를 찾습니다.
-    full_path = os.path.join(base_dir, script)
-    if not os.path.exists(full_path):
-        # 없으면 scripts 하위 디렉터리에서 다시 시도합니다.
-        full_path = os.path.join(base_dir, "scripts", script)
+SCRIPTS_DIRS = [
+    os.path.dirname(os.path.abspath(__file__)),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"),
+]
 
-    if not os.path.exists(full_path):
-        logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
+# ---------------------- 스크립트 실행 함수 ----------------------
+def run_script(script: str) -> bool:
+    """Execute a Python script located either at repo root or within scripts/"""
+    possible_paths = [os.path.join(dir_path, script) for dir_path in SCRIPTS_DIRS]
+    full_path = next((p for p in possible_paths if os.path.exists(p)), None)
+
+    if not full_path:
+        logging.error(f"❌ 파일이 존재하지 않습니다: {script}")
         return False
 
-    logging.info(f"🚀 실행 중: {script}")
+    logging.info(f"🚀 실행 중: {full_path}")
     result = subprocess.run([sys.executable, full_path], capture_output=True, text=True)
 
     if result.returncode != 0:
