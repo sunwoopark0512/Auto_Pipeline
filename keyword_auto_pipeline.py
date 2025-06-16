@@ -6,7 +6,14 @@ from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
-import random  # CPC 더미 데이터용
+
+# Google Ads API
+try:
+    from google.ads.googleads.client import GoogleAdsClient
+    from google.ads.googleads.errors import GoogleAdsException
+except ImportError:  # 라이브러리가 설치되지 않았을 수도 있음
+    GoogleAdsClient = None
+    GoogleAdsException = Exception
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
@@ -16,7 +23,11 @@ GOOGLE_TRENDS_MIN_SCORE = 60
 GOOGLE_TRENDS_MIN_GROWTH = 1.3
 TWITTER_MIN_MENTIONS = 30
 TWITTER_MIN_TOP_RETWEET = 50
-MIN_CPC = 1000  # 원 (더미 기준)
+MIN_CPC = 1000  # 원 기준 필터링 값
+
+# Google Ads 설정
+GOOGLE_ADS_CONFIG_PATH = os.getenv("GOOGLE_ADS_CONFIG_PATH", "config/google-ads.yaml")
+GOOGLE_ADS_CUSTOMER_ID = os.getenv("GOOGLE_ADS_CUSTOMER_ID")
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
@@ -48,12 +59,66 @@ def generate_keyword_pairs(topic_details):
 
 # ---------------------- CPC 캐시 ----------------------
 cpc_cache = {}
+google_ads_client = None
 
-def fetch_cpc_dummy(keyword):
-    if keyword not in cpc_cache:
-        cpc_cache[keyword] = random.randint(500, 2000)
-        logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
-    return cpc_cache[keyword]
+
+def get_google_ads_client():
+    """Google Ads 클라이언트를 초기화하여 반환한다."""
+    global google_ads_client
+    if google_ads_client is not None:
+        return google_ads_client
+
+    if GoogleAdsClient is None:
+        logging.warning("google-ads 라이브러리가 설치되어 있지 않습니다.")
+        return None
+
+    try:
+        google_ads_client = GoogleAdsClient.load_from_storage(GOOGLE_ADS_CONFIG_PATH)
+        logging.debug("Google Ads client 초기화 완료")
+    except Exception as e:
+        logging.error(f"Google Ads client 초기화 실패: {e}")
+        google_ads_client = None
+    return google_ads_client
+
+
+def fetch_cpc(keyword: str) -> int:
+    """Google Ads API를 사용해 키워드의 평균 CPC를 가져온다."""
+    if keyword in cpc_cache:
+        return cpc_cache[keyword]
+
+    client = get_google_ads_client()
+    if client is None or not GOOGLE_ADS_CUSTOMER_ID:
+        logging.warning("Google Ads 설정이 없어 CPC 값을 가져올 수 없습니다.")
+        cpc_cache[keyword] = 0
+        return 0
+
+    try:
+        service = client.get_service("GoogleAdsService")
+        query = (
+            "SELECT metrics.average_cpc FROM keyword_view "
+            f"WHERE segments.keyword.info.text = '{keyword}' LIMIT 1"
+        )
+        stream = service.search_stream(customer_id=GOOGLE_ADS_CUSTOMER_ID, query=query)
+
+        cpc_micros = None
+        for batch in stream:
+            for row in batch.results:
+                cpc_micros = row.metrics.average_cpc.micros
+                break
+            if cpc_micros is not None:
+                break
+
+        cpc = int(cpc_micros / 1_000_000) if cpc_micros else 0
+        cpc_cache[keyword] = cpc
+        logging.debug(f"CPC 가져옴: {keyword} = {cpc}")
+        return cpc
+    except GoogleAdsException as ex:
+        logging.error(f"Google Ads API 에러 '{keyword}': {ex}")
+    except Exception as e:
+        logging.error(f"Google Ads 처리 실패 '{keyword}': {e}")
+
+    cpc_cache[keyword] = 0
+    return 0
 
 # ---------------------- 데이터 수집 함수 ----------------------
 def fetch_google_trends(keyword, pytrends):
@@ -73,7 +138,7 @@ def fetch_google_trends(keyword, pytrends):
             "source": "GoogleTrends",
             "score": int(recent_avg),
             "growth": growth,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
         return result
@@ -97,7 +162,7 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "source": "Twitter",
             "mentions": mentions,
             "top_retweet": top_retweets[0] if top_retweets else 0,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
         return result
