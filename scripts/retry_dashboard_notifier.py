@@ -4,12 +4,13 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from common import FAILED_HOOK_PATH
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_KPI_DB_ID = os.getenv("NOTION_KPI_DB_ID")
-SUMMARY_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
+SUMMARY_PATH = FAILED_HOOK_PATH
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
