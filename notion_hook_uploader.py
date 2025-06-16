@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from prometheus_client import start_http_server, Summary, Counter
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -24,6 +25,19 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+try:
+    import sentry_sdk
+    sentry_sdk.init(os.getenv("SENTRY_DSN", ""))
+except Exception as e:
+    logging.warning(f"Sentry init failed: {e}")
+    sentry_sdk = None
+
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8007"))
+start_http_server(METRICS_PORT)
+UPLOAD_DURATION = Summary('hook_upload_seconds', 'Time spent uploading hooks')
+UPLOAD_SUCCESS = Counter('hook_upload_success_total', 'Hook upload success count')
+UPLOAD_FAILURE = Counter('hook_upload_failure_total', 'Hook upload failure count')
 
 # ---------------------- 유틸: Notion rich_text 제한 처리 ----------------------
 def truncate_text(text, max_length=2000):
@@ -85,6 +99,8 @@ def upload_all_hooks():
             hooks = json.load(f)
     except Exception as e:
         logging.error(f"❗ 후킹 JSON 파일 읽기 오류: {e}")
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
         return
 
     total, success, skipped, failed = 0, 0, 0, 0
@@ -102,30 +118,46 @@ def upload_all_hooks():
             skipped += 1
             continue
 
+        start_time = time.time()
         for attempt in range(3):
             try:
                 create_notion_page(item)
                 logging.info(f"✅ 업로드 완료: {keyword}")
                 success += 1
+                UPLOAD_SUCCESS.inc()
                 break
             except Exception as e:
                 logging.warning(f"🔁 재시도 {attempt+1}/3 - {keyword} | 오류: {e}")
+                if sentry_sdk:
+                    sentry_sdk.capture_exception(e)
                 time.sleep(1)
         else:
             logging.error(f"❌ 업로드 실패: {keyword}")
+            UPLOAD_FAILURE.inc()
             failed_items.append(item)
             failed += 1
+        UPLOAD_DURATION.observe(time.time() - start_time)
 
         time.sleep(UPLOAD_DELAY)
 
     if failed_items:
         os.makedirs(os.path.dirname(FAILED_OUTPUT_PATH), exist_ok=True)
-        with open(FAILED_OUTPUT_PATH, 'w', encoding='utf-8') as f:
-            json.dump(failed_items, f, ensure_ascii=False, indent=2)
+        try:
+            with open(FAILED_OUTPUT_PATH, 'w', encoding='utf-8') as f:
+                json.dump(failed_items, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logging.error(f"실패 항목 저장 오류: {e}")
+            if sentry_sdk:
+                sentry_sdk.capture_exception(e)
         logging.info(f"❗ 실패 항목 저장됨: {FAILED_OUTPUT_PATH}")
 
     logging.info("📊 후킹 업로드 요약")
     logging.info(f"총 항목: {total} | 성공: {success} | 중복스킵: {skipped} | 실패: {failed}")
 
 if __name__ == "__main__":
-    upload_all_hooks()
+    try:
+        upload_all_hooks()
+    except Exception as e:
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
+        raise

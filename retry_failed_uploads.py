@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+from prometheus_client import start_http_server, Summary, Counter
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
@@ -13,7 +14,27 @@ NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 FAILED_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
 RETRY_DELAY = float(os.getenv("RETRY_DELAY", "0.5"))
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s:%(message)s',
+    handlers=[
+        logging.FileHandler("logs/retry_failed.log"),
+        logging.StreamHandler()
+    ]
+)
+
+try:
+    import sentry_sdk
+    sentry_sdk.init(os.getenv("SENTRY_DSN", ""))
+except Exception as e:
+    logging.warning(f"Sentry init failed: {e}")
+    sentry_sdk = None
+
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8005"))
+start_http_server(METRICS_PORT)
+RETRY_SUCCESS = Counter('retry_upload_success_total', 'Retry upload success count')
+RETRY_FAILURE = Counter('retry_upload_failure_total', 'Retry upload failure count')
+RETRY_DURATION = Summary('retry_upload_seconds', 'Time spent retrying upload')
 
 # ---------------------- Notion 클라이언트 ----------------------
 if not NOTION_TOKEN or not NOTION_HOOK_DB_ID:
@@ -75,15 +96,21 @@ def retry_failed_uploads():
         if not keyword:
             logging.warning("⛔ keyword 누락 항목 건너뜀")
             continue
+        start_time = time.time()
         try:
             create_retry_page(item)
             logging.info(f"✅ 재업로드 성공: {keyword}")
             success += 1
+            RETRY_SUCCESS.inc()
         except Exception as e:
             logging.error(f"❌ 재시도 실패: {keyword} - {e}")
+            RETRY_FAILURE.inc()
+            if sentry_sdk:
+                sentry_sdk.capture_exception(e)
             item["retry_error"] = str(e)
             still_failed.append(item)
             failed += 1
+        RETRY_DURATION.observe(time.time() - start_time)
         time.sleep(RETRY_DELAY)
 
     # 실패 파일 덮어쓰기
@@ -97,4 +124,9 @@ def retry_failed_uploads():
     logging.info(f"성공: {success} | 실패 유지: {failed}")
 
 if __name__ == "__main__":
-    retry_failed_uploads()
+    try:
+        retry_failed_uploads()
+    except Exception as e:
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
+        raise
