@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from content_validation import validate_item
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -46,6 +47,10 @@ def create_retry_page(item):
         "blog_paragraphs": item.get("blog_paragraphs", ["", "", ""]),
         "video_titles": item.get("video_titles", ["", ""])
     }
+
+    violations = validate_item({"parsed": parsed})
+    if violations:
+        raise ValueError("validation failed: " + "; ".join(violations))
 
     notion.pages.create(
         parent={"database_id": NOTION_HOOK_DB_ID},
