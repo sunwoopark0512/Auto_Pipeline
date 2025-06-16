@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_type.capitalize() }} Performance Report</title>
+</head>
+<body>
+    <h1>{{ report_type.capitalize() }} Performance Report</h1>
+    <table>
+        <tr>
+            <th>Title</th>
+            <th>Views</th>
+            <th>Post Date</th>
+        </tr>
+        {% for item in data %}
+        <tr>
+            <td>{{ item['properties']['Title']['title'][0]['text']['content'] }}</td>
+            <td>{{ item['properties']['Views']['number'] }}</td>
+            <td>{{ item['properties']['Post Date']['date']['start'] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
