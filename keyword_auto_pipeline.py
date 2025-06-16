@@ -6,7 +6,7 @@ from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
-import random  # CPC 더미 데이터용
+from cpc_service import get_cpc
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
@@ -46,14 +46,16 @@ def generate_keyword_pairs(topic_details):
             pairs.append(f"{topic} {sub}")
     return pairs
 
-# ---------------------- CPC 캐시 ----------------------
-cpc_cache = {}
-
-def fetch_cpc_dummy(keyword):
-    if keyword not in cpc_cache:
-        cpc_cache[keyword] = random.randint(500, 2000)
-        logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
-    return cpc_cache[keyword]
+# ---------------------- CPC 조회 함수 ----------------------
+# 외부 서비스에서 CPC를 조회하고 cpc_service 모듈의 캐시를 활용한다.
+def fetch_cpc(keyword):
+    try:
+        return get_cpc(keyword)
+    except Exception as e:
+        logging.warning(f"CPC 조회 실패, 더미 데이터 사용: {keyword} - {e}")
+        # get_cpc 내부에서 이미 더미 데이터를 사용하지만 예외 대비
+        from cpc_service import fetch_cpc_dummy
+        return fetch_cpc_dummy(keyword)
 
 # ---------------------- 데이터 수집 함수 ----------------------
 def fetch_google_trends(keyword, pytrends):
@@ -73,7 +75,7 @@ def fetch_google_trends(keyword, pytrends):
             "source": "GoogleTrends",
             "score": int(recent_avg),
             "growth": growth,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
         return result
@@ -97,7 +99,7 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "source": "Twitter",
             "mentions": mentions,
             "top_retweet": top_retweets[0] if top_retweets else 0,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
         return result
