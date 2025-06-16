@@ -1,0 +1,6 @@
+boto3
+openai
+python-dotenv
+notion-client
+pytrends
+snscrape
