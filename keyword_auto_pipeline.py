@@ -1,6 +1,8 @@
 import os
 import json
 import logging
+import time
+from prometheus_client import start_http_server, Summary, Counter
 from datetime import datetime
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -21,8 +23,23 @@ MIN_CPC = 1000  # 원 (더미 기준)
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s %(levelname)s:%(message)s'
+    format='%(asctime)s %(levelname)s:%(message)s',
+    handlers=[
+        logging.FileHandler("logs/keyword_pipeline.log"),
+        logging.StreamHandler()
+    ]
 )
+
+try:
+    import sentry_sdk
+    sentry_sdk.init(os.getenv("SENTRY_DSN", ""))
+except Exception as e:
+    logging.warning(f"Sentry init failed: {e}")
+    sentry_sdk = None
+
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8003"))
+start_http_server(METRICS_PORT)
+COLLECT_DURATION = Summary('keyword_collect_seconds', 'Keyword collection time')
 
 # ---------------------- 토픽별 세부 키워드 쌍 ----------------------
 TOPIC_DETAILS = {
@@ -148,6 +165,7 @@ def collect_data_for_keyword(keyword, pytrends):
 
 # ---------------------- 메인 파이프라인 ----------------------
 def run_pipeline():
+    start_time = time.time()
     keywords = generate_keyword_pairs(TOPIC_DETAILS)
     pytrends = TrendReq(hl='ko', tz=540)
     all_results = []
@@ -176,6 +194,14 @@ def run_pipeline():
         logging.info(f"✅ 결과 저장 완료: {OUTPUT_PATH}")
     except Exception as e:
         logging.error(f"결과 저장 실패: {e}")
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
+    COLLECT_DURATION.observe(time.time() - start_time)
 
 if __name__ == "__main__":
-    run_pipeline()
+    try:
+        run_pipeline()
+    except Exception as e:
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
+        raise

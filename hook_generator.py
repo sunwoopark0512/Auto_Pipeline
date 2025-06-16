@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+from prometheus_client import start_http_server, Summary, Counter
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
@@ -17,7 +18,29 @@ API_DELAY = float(os.getenv("API_DELAY", "1.0"))
 openai.api_key = OPENAI_API_KEY
 
 # ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s:%(message)s',
+    handlers=[
+        logging.FileHandler("logs/hook_generator.log"),
+        logging.StreamHandler()
+    ]
+)
+
+# ---------------------- 외부 서비스 초기화 ----------------------
+try:
+    import sentry_sdk
+    sentry_sdk.init(os.getenv("SENTRY_DSN", ""))
+except Exception as e:
+    logging.warning(f"Sentry init failed: {e}")
+    sentry_sdk = None
+
+# ---------------------- Prometheus 메트릭 설정 ----------------------
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8001"))
+start_http_server(METRICS_PORT)
+GEN_DURATION = Summary('hook_generation_seconds', 'Time spent generating hooks')
+GEN_SUCCESS = Counter('hook_generation_success_total', 'Hook generation success count')
+GEN_FAILURE = Counter('hook_generation_failure_total', 'Hook generation failure count')
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
 def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
@@ -45,6 +68,8 @@ def get_gpt_response(prompt, retries=3):
             return response.choices[0].message['content']
         except Exception as e:
             logging.warning(f"GPT 호출 실패 {attempt + 1}/{retries}: {e}")
+            if sentry_sdk:
+                sentry_sdk.capture_exception(e)
             time.sleep(2)
     return None
 
@@ -60,6 +85,8 @@ def generate_hooks():
             keywords = data.get("filtered_keywords", [])
     except Exception as e:
         logging.error(f"❗ 키워드 파일 읽기 오류: {e}")
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
         return
 
     existing = {}
@@ -71,6 +98,8 @@ def generate_hooks():
                     existing[entry['keyword']] = entry
         except Exception as e:
             logging.warning(f"기존 결과 로딩 실패: {e}")
+            if sentry_sdk:
+                sentry_sdk.capture_exception(e)
 
     new_output = []
     failed_output = []
@@ -95,7 +124,10 @@ def generate_hooks():
             growth=item.get('growth', 0),
             mentions=item.get('mentions', 0)
         )
+        start_time = time.time()
         response = get_gpt_response(prompt)
+        duration = time.time() - start_time
+        GEN_DURATION.observe(duration)
 
         result = {
             "keyword": keyword,
@@ -113,25 +145,39 @@ def generate_hooks():
             })
             new_output.append(result)
             logging.info(f"✅ 생성 완료: {keyword}")
+            GEN_SUCCESS.inc()
             success += 1
         else:
             result["generated_text"] = None
             result["error"] = "GPT 응답 실패"
             failed_output.append(result)
             logging.error(f"❌ 생성 실패: {keyword}")
+            GEN_FAILURE.inc()
+            if sentry_sdk:
+                sentry_sdk.capture_exception(Exception("GPT response failed"))
             failed += 1
 
         time.sleep(API_DELAY)
 
     full_output = list(existing.values()) + new_output
     os.makedirs(os.path.dirname(HOOK_OUTPUT_PATH), exist_ok=True)
-    with open(HOOK_OUTPUT_PATH, 'w', encoding='utf-8') as f:
-        json.dump(full_output, f, ensure_ascii=False, indent=2)
+    try:
+        with open(HOOK_OUTPUT_PATH, 'w', encoding='utf-8') as f:
+            json.dump(full_output, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logging.error(f"결과 저장 실패: {e}")
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
 
     if failed_output:
         os.makedirs(os.path.dirname(FAILED_HOOK_PATH), exist_ok=True)
-        with open(FAILED_HOOK_PATH, 'w', encoding='utf-8') as f:
-            json.dump(failed_output, f, ensure_ascii=False, indent=2)
+        try:
+            with open(FAILED_HOOK_PATH, 'w', encoding='utf-8') as f:
+                json.dump(failed_output, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logging.error(f"실패 결과 저장 오류: {e}")
+            if sentry_sdk:
+                sentry_sdk.capture_exception(e)
         logging.warning(f"⚠️ 실패 후킹 저장 완료: {FAILED_HOOK_PATH}")
 
     logging.info("📊 생성 작업 요약")
@@ -139,4 +185,9 @@ def generate_hooks():
     logging.info(f"🎉 후킹 문장 저장 완료: {HOOK_OUTPUT_PATH}")
 
 if __name__ == "__main__":
-    generate_hooks()
+    try:
+        generate_hooks()
+    except Exception as e:
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
+        raise

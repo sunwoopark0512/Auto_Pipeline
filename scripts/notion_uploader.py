@@ -2,6 +2,8 @@ import os
 import json
 import time
 import logging
+import time
+from prometheus_client import start_http_server, Summary, Counter
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
@@ -16,7 +18,29 @@ CACHE_PATH = os.getenv("UPLOADED_CACHE_PATH", "data/uploaded_keywords_cache.json
 FAILED_PATH = os.getenv("FAILED_UPLOADS_PATH", "logs/failed_uploads.json")
 
 # ---------------------- 로깅 설정 ----------------------
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s:%(message)s',
+    handlers=[
+        logging.FileHandler("logs/notion_uploader.log"),
+        logging.StreamHandler()
+    ]
+)
+
+# ---------------------- 외부 서비스 초기화 ----------------------
+try:
+    import sentry_sdk
+    sentry_sdk.init(os.getenv("SENTRY_DSN", ""))
+except Exception as e:
+    logging.warning(f"Sentry init failed: {e}")
+    sentry_sdk = None
+
+# ---------------------- Prometheus 메트릭 설정 ----------------------
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8002"))
+start_http_server(METRICS_PORT)
+UPLOAD_DURATION = Summary('keyword_upload_seconds', 'Time spent uploading keyword')
+UPLOAD_SUCCESS = Counter('keyword_upload_success_total', 'Keyword upload success count')
+UPLOAD_FAILURE = Counter('keyword_upload_failure_total', 'Keyword upload failure count')
 
 # ---------------------- Notion 클라이언트 ----------------------
 notion = Client(auth=NOTION_TOKEN)
@@ -76,6 +100,8 @@ def upload_all_keywords():
             keywords = data.get("filtered_keywords", [])
     except Exception as e:
         logging.error(f"❗ 키워드 파일 읽기 오류: {e}")
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
         return
 
     total = len(keywords)
@@ -92,21 +118,28 @@ def upload_all_keywords():
             skipped += 1
             continue
 
+        start_time = time.time()
         for attempt in range(3):
             try:
                 create_notion_page(item)
                 uploaded_cache.add(keyword)
                 logging.info(f"✅ 업로드 완료: {keyword}")
                 success += 1
+                UPLOAD_SUCCESS.inc()
                 time.sleep(UPLOAD_DELAY)
                 break
             except Exception as e:
                 logging.warning(f"🔁 재시도 {attempt + 1}/3 - {keyword} | 오류: {e}")
+                if sentry_sdk:
+                    sentry_sdk.capture_exception(e)
                 time.sleep(1)
         else:
             logging.error(f"❌ 업로드 실패: {keyword} | 데이터: {item}")
+            UPLOAD_FAILURE.inc()
             failed_uploads.append(item)
             failed += 1
+        duration = time.time() - start_time
+        UPLOAD_DURATION.observe(duration)
 
     # 캐시 저장
     try:
@@ -116,6 +149,8 @@ def upload_all_keywords():
         logging.info(f"📦 업로드 캐시 저장 완료: {CACHE_PATH}")
     except Exception as e:
         logging.warning(f"⚠️ 캐시 저장 실패: {e}")
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
 
     # 실패 로그 저장
     if failed_uploads:
@@ -126,6 +161,8 @@ def upload_all_keywords():
             logging.info(f"❗ 실패 항목 기록 완료: {FAILED_PATH}")
         except Exception as e:
             logging.warning(f"⚠️ 실패 로그 저장 실패: {e}")
+            if sentry_sdk:
+                sentry_sdk.capture_exception(e)
 
     # ---------------------- 요약 결과 출력 ----------------------
     logging.info("🎯 업로드 완료 요약")
@@ -133,4 +170,9 @@ def upload_all_keywords():
 
 # ---------------------- 메인 진입점 ----------------------
 if __name__ == "__main__":
-    upload_all_keywords()
+    try:
+        upload_all_keywords()
+    except Exception as e:
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
+        raise

@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+from prometheus_client import start_http_server, Summary, Counter
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
@@ -11,7 +12,26 @@ NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_KPI_DB_ID = os.getenv("NOTION_KPI_DB_ID")
 SUMMARY_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s:%(message)s',
+    handlers=[
+        logging.FileHandler("logs/retry_dashboard.log"),
+        logging.StreamHandler()
+    ]
+)
+
+try:
+    import sentry_sdk
+    sentry_sdk.init(os.getenv("SENTRY_DSN", ""))
+except Exception as e:
+    logging.warning(f"Sentry init failed: {e}")
+    sentry_sdk = None
+
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8004"))
+start_http_server(METRICS_PORT)
+NOTIFY_SUCCESS = Counter('dashboard_notify_success_total', 'Dashboard notify success')
+NOTIFY_FAILURE = Counter('dashboard_notify_failure_total', 'Dashboard notify failure')
 
 # ---------------------- Notion 클라이언트 ----------------------
 if not NOTION_TOKEN or not NOTION_KPI_DB_ID:
@@ -56,12 +76,21 @@ def push_kpi_to_notion(kpi):
             }
         )
         logging.info("📊 Notion KPI 업데이트 완료")
+        NOTIFY_SUCCESS.inc()
     except Exception as e:
         logging.error(f"❌ Notion KPI 전송 실패: {e}")
+        NOTIFY_FAILURE.inc()
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
 
 # ---------------------- 실행 진입점 ----------------------
 if __name__ == "__main__":
-    kpi = get_retry_stats()
-    if kpi:
-        logging.info(f"📈 KPI 요약: {kpi}")
-        push_kpi_to_notion(kpi)
+    try:
+        kpi = get_retry_stats()
+        if kpi:
+            logging.info(f"📈 KPI 요약: {kpi}")
+            push_kpi_to_notion(kpi)
+    except Exception as e:
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
+        raise
