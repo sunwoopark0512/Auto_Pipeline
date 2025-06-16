@@ -35,7 +35,7 @@ jobs:
         run: pytest -q
 
       - name: ▶️ Run full pipeline (single entrypoint)
-        run: python scripts/run_pipeline.py
+        run: python run_pipeline.py
 
       - name: 📋 Upload failed items (if any)
         if: always()
