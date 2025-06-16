@@ -12,16 +12,21 @@ logging.basicConfig(
 
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
 PIPELINE_SEQUENCE = [
+    "keyword_auto_pipeline.py",
     "hook_generator.py",
-    "parse_failed_gpt.py",
+    "notion_hook_uploader.py",
     "retry_failed_uploads.py",
-    "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    "retry_dashboard_notifier.py",
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
 def run_script(script):
-    full_path = os.path.join("scripts", script)
+    # 우선 현재 디렉토리 기준으로 경로를 확인한다
+    if os.path.exists(script):
+        full_path = script
+    else:
+        # 하위 scripts 디렉토리에서도 찾아본다
+        full_path = os.path.join("scripts", script)
     if not os.path.exists(full_path):
         logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
         return False
