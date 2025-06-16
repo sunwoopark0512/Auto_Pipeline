@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from content_validator import validate_generated_item
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -100,6 +101,13 @@ def upload_all_hooks():
         if page_exists(keyword):
             logging.info(f"⏭️ 중복 스킵: {keyword}")
             skipped += 1
+            continue
+
+        valid, reason = validate_generated_item(item)
+        if not valid:
+            logging.warning(f"⛔ 검증 실패: {keyword} - {reason}")
+            failed_items.append(item)
+            failed += 1
             continue
 
         for attempt in range(3):

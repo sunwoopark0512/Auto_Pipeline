@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from content_validator import validate_generated_item
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -74,6 +75,13 @@ def retry_failed_uploads():
         keyword = item.get("keyword")
         if not keyword:
             logging.warning("⛔ keyword 누락 항목 건너뜀")
+            continue
+        valid, reason = validate_generated_item(item)
+        if not valid:
+            logging.warning(f"⛔ 검증 실패: {keyword} - {reason}")
+            item["retry_error"] = reason
+            still_failed.append(item)
+            failed += 1
             continue
         try:
             create_retry_page(item)
