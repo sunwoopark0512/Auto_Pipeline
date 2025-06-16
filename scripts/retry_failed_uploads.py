@@ -10,7 +10,11 @@ from dotenv import load_dotenv
 load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
-FAILED_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_keywords.json")
+# 재파싱된 실패 키워드 JSON 경로
+FAILED_PATH = os.getenv(
+    "REPARSED_OUTPUT_PATH",
+    "logs/failed_keywords_reparsed.json",
+)
 RETRY_DELAY = float(os.getenv("RETRY_DELAY", "0.5"))
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
