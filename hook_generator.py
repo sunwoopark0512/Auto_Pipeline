@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from utils.encryption_util import EncryptionUtil
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -15,6 +16,14 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_DELAY = float(os.getenv("API_DELAY", "1.0"))
 
 openai.api_key = OPENAI_API_KEY
+
+# Encryption setup (optional)
+try:
+    encryption_util = EncryptionUtil()
+    ENCRYPT_ENABLED = True
+except Exception:
+    encryption_util = None
+    ENCRYPT_ENABLED = False
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
@@ -65,8 +74,17 @@ def generate_hooks():
     existing = {}
     if os.path.exists(HOOK_OUTPUT_PATH):
         try:
-            with open(HOOK_OUTPUT_PATH, 'r', encoding='utf-8') as f:
-                existing_data = json.load(f)
+            mode = 'rb' if ENCRYPT_ENABLED else 'r'
+            with open(HOOK_OUTPUT_PATH, mode) as f:
+                raw = f.read()
+                if ENCRYPT_ENABLED:
+                    existing_data = json.loads(
+                        encryption_util.decrypt(raw).decode('utf-8')
+                    )
+                else:
+                    if isinstance(raw, bytes):
+                        raw = raw.decode('utf-8')
+                    existing_data = json.loads(raw)
                 for entry in existing_data:
                     existing[entry['keyword']] = entry
         except Exception as e:
@@ -125,13 +143,23 @@ def generate_hooks():
 
     full_output = list(existing.values()) + new_output
     os.makedirs(os.path.dirname(HOOK_OUTPUT_PATH), exist_ok=True)
-    with open(HOOK_OUTPUT_PATH, 'w', encoding='utf-8') as f:
-        json.dump(full_output, f, ensure_ascii=False, indent=2)
+    data_bytes = json.dumps(full_output, ensure_ascii=False, indent=2).encode('utf-8')
+    mode = 'wb' if ENCRYPT_ENABLED else 'w'
+    with open(HOOK_OUTPUT_PATH, mode) as f:
+        if ENCRYPT_ENABLED:
+            f.write(encryption_util.encrypt(data_bytes))
+        else:
+            f.write(data_bytes if 'b' in mode else data_bytes.decode('utf-8'))
 
     if failed_output:
         os.makedirs(os.path.dirname(FAILED_HOOK_PATH), exist_ok=True)
-        with open(FAILED_HOOK_PATH, 'w', encoding='utf-8') as f:
-            json.dump(failed_output, f, ensure_ascii=False, indent=2)
+        failed_bytes = json.dumps(failed_output, ensure_ascii=False, indent=2).encode('utf-8')
+        mode = 'wb' if ENCRYPT_ENABLED else 'w'
+        with open(FAILED_HOOK_PATH, mode) as f:
+            if ENCRYPT_ENABLED:
+                f.write(encryption_util.encrypt(failed_bytes))
+            else:
+                f.write(failed_bytes if 'b' in mode else failed_bytes.decode('utf-8'))
         logging.warning(f"⚠️ 실패 후킹 저장 완료: {FAILED_HOOK_PATH}")
 
     logging.info("📊 생성 작업 요약")

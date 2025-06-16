@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from utils.encryption_util import EncryptionUtil
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -12,6 +13,14 @@ NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 FAILED_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_keywords.json")
 RETRY_DELAY = float(os.getenv("RETRY_DELAY", "0.5"))
+
+# optional encryption
+try:
+    encryption_util = EncryptionUtil()
+    ENCRYPT_ENABLED = True
+except Exception:
+    encryption_util = None
+    ENCRYPT_ENABLED = False
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
@@ -30,8 +39,14 @@ def load_failed_items():
     if not os.path.exists(FAILED_PATH):
         logging.warning(f"❗ 실패 항목 파일이 존재하지 않습니다: {FAILED_PATH}")
         return []
-    with open(FAILED_PATH, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    mode = 'rb' if ENCRYPT_ENABLED else 'r'
+    with open(FAILED_PATH, mode) as f:
+        raw = f.read()
+        if ENCRYPT_ENABLED:
+            return json.loads(encryption_util.decrypt(raw).decode('utf-8'))
+        if isinstance(raw, bytes):
+            raw = raw.decode('utf-8')
+        return json.loads(raw)
 
 # ---------------------- Notion 페이지 재생성 ----------------------
 def create_retry_page(item):
@@ -88,8 +103,13 @@ def retry_failed_uploads():
 
     # 실패 파일 덮어쓰기
     if still_failed:
-        with open(FAILED_PATH, 'w', encoding='utf-8') as f:
-            json.dump(still_failed, f, ensure_ascii=False, indent=2)
+        failed_bytes = json.dumps(still_failed, ensure_ascii=False, indent=2).encode('utf-8')
+        mode = 'wb' if ENCRYPT_ENABLED else 'w'
+        with open(FAILED_PATH, mode) as f:
+            if ENCRYPT_ENABLED:
+                f.write(encryption_util.encrypt(failed_bytes))
+            else:
+                f.write(failed_bytes if 'b' in mode else failed_bytes.decode('utf-8'))
         logging.warning(f"🔁 여전히 실패한 항목 {len(still_failed)}개가 남아 있습니다.")
 
     # 요약
