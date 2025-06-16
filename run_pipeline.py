@@ -11,17 +11,29 @@ logging.basicConfig(
 )
 
 # ---------------------- 실행할 스크립트 순서 정의 ----------------------
+# 프로젝트 루트 기준 실행할 스크립트 경로
 PIPELINE_SEQUENCE = [
+    "keyword_auto_pipeline.py",
     "hook_generator.py",
-    "parse_failed_gpt.py",
+    "notion_hook_uploader.py",
     "retry_failed_uploads.py",
-    "notify_retry_result.py",
     "retry_dashboard_notifier.py"
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
-def run_script(script):
-    full_path = os.path.join("scripts", script)
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def run_script(script: str) -> bool:
+    """주어진 스크립트를 실행한다.
+
+    인자로 전달된 경로가 절대 경로가 아니면 프로젝트 루트 기준으로
+    해석한다. 존재 여부를 확인 후 실행한다.
+    """
+    full_path = script
+    if not os.path.isabs(script):
+        full_path = os.path.join(ROOT_DIR, script)
+
     if not os.path.exists(full_path):
         logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
         return False
