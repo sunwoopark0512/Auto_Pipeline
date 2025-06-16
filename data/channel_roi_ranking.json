@@ -1,0 +1,22 @@
+[
+  {
+    "channel": "Email",
+    "roi_score": 3.65
+  },
+  {
+    "channel": "YouTube",
+    "roi_score": 2.9
+  },
+  {
+    "channel": "Instagram",
+    "roi_score": 2.58
+  },
+  {
+    "channel": "Blog",
+    "roi_score": 1.76
+  },
+  {
+    "channel": "Twitter",
+    "roi_score": 1.41
+  }
+]
