@@ -1,0 +1,5 @@
+[
+  {"channel": "A", "cost": 1000, "revenue": 2000},
+  {"channel": "B", "cost": 2000, "revenue": 3000},
+  {"channel": "C", "cost": 1500, "revenue": 4000}
+]
