@@ -3,13 +3,12 @@ import json
 import logging
 from datetime import datetime
 from notion_client import Client
-from dotenv import load_dotenv
+from common.env import env
 
 # ---------------------- 설정 로딩 ----------------------
-load_dotenv()
-NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
-NOTION_KPI_DB_ID = os.getenv("NOTION_KPI_DB_ID")
-SUMMARY_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
+NOTION_TOKEN = env("NOTION_API_TOKEN")
+NOTION_KPI_DB_ID = env("NOTION_KPI_DB_ID")
+SUMMARY_PATH = env("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 

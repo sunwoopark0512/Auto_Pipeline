@@ -20,8 +20,10 @@ PIPELINE_SEQUENCE = [
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def run_script(script):
-    full_path = os.path.join("scripts", script)
+    full_path = os.path.join(SCRIPT_DIR, script)
     if not os.path.exists(full_path):
         logging.error(f"❌ 파일이 존재하지 않습니다: {full_path}")
         return False

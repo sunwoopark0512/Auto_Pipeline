@@ -5,15 +5,14 @@ import logging
 import re
 from datetime import datetime
 from notion_client import Client
-from dotenv import load_dotenv
+from common.env import env
 
 # ---------------------- 설정 로딩 ----------------------
-load_dotenv()
-NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
-NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
-HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
-FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
-UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
+NOTION_TOKEN = env("NOTION_API_TOKEN")
+NOTION_HOOK_DB_ID = env("NOTION_HOOK_DB_ID")
+HOOK_OUTPUT_PATH = env("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
+FAILED_HOOK_PATH = env("FAILED_HOOK_PATH", "data/upload_failed_hooks.json")
+UPLOAD_DELAY = float(env("UPLOAD_DELAY", "0.5"))
 
 notion = Client(auth=NOTION_TOKEN)
 logging.basicConfig(
@@ -81,7 +80,7 @@ def upload_all_hooks():
         return
 
     try:
-        with open(HOOK_JSON_PATH, 'r', encoding='utf-8') as f:
+        with open(HOOK_OUTPUT_PATH, 'r', encoding='utf-8') as f:
             hooks = json.load(f)
     except Exception as e:
         logging.error(f"❗ 후킹 JSON 파일 읽기 오류: {e}")
@@ -119,10 +118,10 @@ def upload_all_hooks():
         time.sleep(UPLOAD_DELAY)
 
     if failed_items:
-        os.makedirs(os.path.dirname(FAILED_OUTPUT_PATH), exist_ok=True)
-        with open(FAILED_OUTPUT_PATH, 'w', encoding='utf-8') as f:
+        os.makedirs(os.path.dirname(FAILED_HOOK_PATH), exist_ok=True)
+        with open(FAILED_HOOK_PATH, 'w', encoding='utf-8') as f:
             json.dump(failed_items, f, ensure_ascii=False, indent=2)
-        logging.info(f"❗ 실패 항목 저장됨: {FAILED_OUTPUT_PATH}")
+        logging.info(f"❗ 실패 항목 저장됨: {FAILED_HOOK_PATH}")
 
     logging.info("📊 후킹 업로드 요약")
     logging.info(f"총 항목: {total} | 성공: {success} | 중복스킵: {skipped} | 실패: {failed}")

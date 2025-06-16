@@ -4,16 +4,15 @@ import time
 import logging
 from datetime import datetime
 from notion_client import Client
-from dotenv import load_dotenv
+from common.env import env
 
 # ---------------------- 설정 로딩 ----------------------
-load_dotenv()
-NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
-NOTION_DB_ID = os.getenv("NOTION_DB_ID")
-KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
-UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
-CACHE_PATH = os.getenv("UPLOADED_CACHE_PATH", "data/uploaded_keywords_cache.json")
-FAILED_PATH = os.getenv("FAILED_UPLOADS_PATH", "logs/failed_uploads.json")
+NOTION_TOKEN = env("NOTION_API_TOKEN")
+NOTION_DB_ID = env("NOTION_DB_ID")
+KEYWORD_JSON_PATH = env("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
+UPLOAD_DELAY = float(env("UPLOAD_DELAY", "0.5"))
+CACHE_PATH = env("UPLOADED_CACHE_PATH", "data/uploaded_keywords_cache.json")
+FAILED_PATH = env("FAILED_UPLOADS_PATH", "logs/failed_uploads.json")
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
