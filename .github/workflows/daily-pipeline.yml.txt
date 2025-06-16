@@ -31,6 +31,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: 🧪 Run tests
+        run: pytest -q
+
       - name: ▶️ Run full pipeline (single entrypoint)
         run: python scripts/run_pipeline.py
 
