@@ -14,6 +14,9 @@ FAILED_HOOK_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_hooks.json")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_DELAY = float(os.getenv("API_DELAY", "1.0"))
 
+USAGE_LOG_PATH = os.getenv("OPENAI_USAGE_LOG", "logs/openai_usage.log")
+MODEL_COST_PER_1000_TOKENS = float(os.getenv("MODEL_COST_PER_1000_TOKENS", "0.09"))
+
 openai.api_key = OPENAI_API_KEY
 
 # ---------------------- 로깅 설정 ----------------------
@@ -35,6 +38,7 @@ def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
 
 # ---------------------- GPT 호출 함수 (재시도 포함) ----------------------
 def get_gpt_response(prompt, retries=3):
+    """Call OpenAI ChatCompletion and return text and total tokens."""
     for attempt in range(retries):
         try:
             response = openai.ChatCompletion.create(
@@ -42,17 +46,19 @@ def get_gpt_response(prompt, retries=3):
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7
             )
-            return response.choices[0].message['content']
+            text = response.choices[0].message["content"]
+            tokens = response.get("usage", {}).get("total_tokens", 0)
+            return text, tokens
         except Exception as e:
             logging.warning(f"GPT 호출 실패 {attempt + 1}/{retries}: {e}")
             time.sleep(2)
-    return None
+    return None, 0
 
 # ---------------------- 메인 실행 함수 ----------------------
 def generate_hooks():
     if not OPENAI_API_KEY:
         logging.error("❗ OpenAI API 키가 누락되었습니다. .env 파일 확인 필요")
-        return
+        return 0.0
 
     try:
         with open(KEYWORD_JSON_PATH, 'r', encoding='utf-8') as f:
@@ -60,7 +66,7 @@ def generate_hooks():
             keywords = data.get("filtered_keywords", [])
     except Exception as e:
         logging.error(f"❗ 키워드 파일 읽기 오류: {e}")
-        return
+        return 0.0
 
     existing = {}
     if os.path.exists(HOOK_OUTPUT_PATH):
@@ -75,6 +81,7 @@ def generate_hooks():
     new_output = []
     failed_output = []
     skipped, success, failed = 0, 0, 0
+    total_tokens_used = 0
 
     for item in keywords:
         keyword = item.get('keyword')
@@ -95,7 +102,8 @@ def generate_hooks():
             growth=item.get('growth', 0),
             mentions=item.get('mentions', 0)
         )
-        response = get_gpt_response(prompt)
+        response_text, tokens = get_gpt_response(prompt)
+        total_tokens_used += tokens
 
         result = {
             "keyword": keyword,
@@ -103,13 +111,13 @@ def generate_hooks():
             "timestamp": datetime.utcnow().isoformat() + 'Z'
         }
 
-        if response:
-            lines = response.split('\n')
+        if response_text:
+            lines = response_text.split('\n')
             result.update({
                 "hook_lines": lines[0:2],
                 "blog_paragraphs": lines[2:5],
                 "video_titles": lines[5:],
-                "generated_text": response
+                "generated_text": response_text
             })
             new_output.append(result)
             logging.info(f"✅ 생성 완료: {keyword}")
@@ -134,9 +142,22 @@ def generate_hooks():
             json.dump(failed_output, f, ensure_ascii=False, indent=2)
         logging.warning(f"⚠️ 실패 후킹 저장 완료: {FAILED_HOOK_PATH}")
 
+    # --------- 사용량 및 비용 로깅 ---------
+    estimated_cost = (total_tokens_used / 1000) * MODEL_COST_PER_1000_TOKENS
+    os.makedirs(os.path.dirname(USAGE_LOG_PATH), exist_ok=True)
+    with open(USAGE_LOG_PATH, "a", encoding="utf-8") as log_f:
+        log_f.write(
+            f"{datetime.utcnow().isoformat()}Z | tokens: {total_tokens_used} | cost_usd: {estimated_cost:.6f}\n"
+        )
+
+    os.environ["LAST_RUN_COST"] = str(estimated_cost)
+
     logging.info("📊 생성 작업 요약")
     logging.info(f"총 키워드: {len(keywords)} | 성공: {success} | 중복스킵: {skipped} | 실패: {failed}")
+    logging.info(f"토큰 사용량: {total_tokens_used} | 예상 비용: ${estimated_cost:.6f}")
     logging.info(f"🎉 후킹 문장 저장 완료: {HOOK_OUTPUT_PATH}")
+
+    return estimated_cost
 
 if __name__ == "__main__":
     generate_hooks()
