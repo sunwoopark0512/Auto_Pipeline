@@ -4,6 +4,16 @@ import sys
 import os
 from datetime import datetime
 
+ENABLE_MONITORING = os.getenv("ENABLE_MONITORING", "false").lower() == "true"
+if ENABLE_MONITORING:
+    from monitoring.resource_monitor import start_monitoring, stop_monitoring
+else:
+    def start_monitoring():
+        pass
+
+    def stop_monitoring():
+        pass
+
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
     level=logging.INFO,
@@ -41,6 +51,10 @@ def run_script(script):
 # ---------------------- 전체 파이프라인 실행 ----------------------
 def run_pipeline():
     logging.info(f"🧩 파이프라인 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    if ENABLE_MONITORING:
+        logging.info("📈 Resource monitoring enabled")
+    start_monitoring()
+
     all_passed = True
 
     for script in PIPELINE_SEQUENCE:
@@ -55,6 +69,10 @@ def run_pipeline():
         logging.info("✅ 모든 단계 성공적으로 완료")
     else:
         logging.warning("⚠️ 일부 단계에서 실패 발생")
+
+    stop_monitoring()
+    if ENABLE_MONITORING:
+        logging.info("📉 Resource monitoring stopped")
 
 # ---------------------- 진입점 ----------------------
 if __name__ == "__main__":
