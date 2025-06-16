@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from compliance import is_compliant
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -104,16 +105,26 @@ def generate_hooks():
         }
 
         if response:
-            lines = response.split('\n')
-            result.update({
-                "hook_lines": lines[0:2],
-                "blog_paragraphs": lines[2:5],
-                "video_titles": lines[5:],
-                "generated_text": response
-            })
-            new_output.append(result)
-            logging.info(f"✅ 생성 완료: {keyword}")
-            success += 1
+            compliant, found_terms = is_compliant(response, "notion")
+            if not compliant:
+                result["generated_text"] = response
+                result["error"] = f"Banned terms found: {', '.join(found_terms)}"
+                failed_output.append(result)
+                logging.warning(
+                    f"🚫 금지어 포함 스킵: {keyword} -> {', '.join(found_terms)}"
+                )
+                failed += 1
+            else:
+                lines = response.split('\n')
+                result.update({
+                    "hook_lines": lines[0:2],
+                    "blog_paragraphs": lines[2:5],
+                    "video_titles": lines[5:],
+                    "generated_text": response
+                })
+                new_output.append(result)
+                logging.info(f"✅ 생성 완료: {keyword}")
+                success += 1
         else:
             result["generated_text"] = None
             result["error"] = "GPT 응답 실패"
