@@ -16,7 +16,8 @@ PIPELINE_SEQUENCE = [
     "parse_failed_gpt.py",
     "retry_failed_uploads.py",
     "notify_retry_result.py",
-    "retry_dashboard_notifier.py"
+    "retry_dashboard_notifier.py",
+    "monitor_failed_logs.py"
 ]
 
 # ---------------------- 스크립트 실행 함수 ----------------------
