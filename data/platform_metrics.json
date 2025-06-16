@@ -1,0 +1,8 @@
+{
+  "timestamp": "2024-01-01T00:00:00Z",
+  "platforms": [
+    {"name": "YouTube", "views": 1000, "clicks": 300, "conversions": 30, "revenue": 450},
+    {"name": "Blog", "views": 800, "clicks": 200, "conversions": 20, "revenue": 200},
+    {"name": "Instagram", "views": 500, "clicks": 100, "conversions": 15, "revenue": 150}
+  ]
+}
