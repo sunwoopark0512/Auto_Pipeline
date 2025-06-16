@@ -32,7 +32,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: 🧪 Run tests
-        run: pytest
+        run: pytest -q
 
       - name: ▶️ Run full pipeline (single entrypoint)
         run: python run_pipeline.py
