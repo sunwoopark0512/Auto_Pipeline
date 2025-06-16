@@ -17,6 +17,10 @@ GOOGLE_TRENDS_MIN_GROWTH = 1.3
 TWITTER_MIN_MENTIONS = 30
 TWITTER_MIN_TOP_RETWEET = 50
 MIN_CPC = 1000  # 원 (더미 기준)
+YOUTUBE_MIN_VIEWS = 10000
+INSTAGRAM_MIN_POSTS = 25
+TIKTOK_MIN_VIEWS = 8000
+MERGED_SCORE_THRESHOLD = 2.0
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
@@ -105,6 +109,60 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
         logging.error(f"Twitter 에러 '{keyword}': {e}")
         return None
 
+def fetch_youtube_trends(keyword):
+    try:
+        views = random.randint(1000, 50000)
+        likes = random.randint(100, 5000)
+        result = {
+            "keyword": keyword,
+            "source": "YouTube",
+            "views": views,
+            "likes": likes,
+            "cpc": fetch_cpc_dummy(keyword)
+        }
+        logging.info(
+            f"YouTube 수집 완료: {keyword} views={views} likes={likes} cpc={result['cpc']}")
+        return result
+    except Exception as e:
+        logging.error(f"YouTube 에러 '{keyword}': {e}")
+        return None
+
+def fetch_instagram_metrics(keyword):
+    try:
+        posts = random.randint(5, 100)
+        likes = random.randint(50, 2000)
+        result = {
+            "keyword": keyword,
+            "source": "Instagram",
+            "posts": posts,
+            "likes": likes,
+            "cpc": fetch_cpc_dummy(keyword)
+        }
+        logging.info(
+            f"Instagram 수집 완료: {keyword} posts={posts} likes={likes} cpc={result['cpc']}")
+        return result
+    except Exception as e:
+        logging.error(f"Instagram 에러 '{keyword}': {e}")
+        return None
+
+def fetch_tiktok_metrics(keyword):
+    try:
+        views = random.randint(1000, 60000)
+        shares = random.randint(10, 5000)
+        result = {
+            "keyword": keyword,
+            "source": "TikTok",
+            "views": views,
+            "shares": shares,
+            "cpc": fetch_cpc_dummy(keyword)
+        }
+        logging.info(
+            f"TikTok 수집 완료: {keyword} views={views} shares={shares} cpc={result['cpc']}")
+        return result
+    except Exception as e:
+        logging.error(f"TikTok 에러 '{keyword}': {e}")
+        return None
+
 # ---------------------- 필터링 함수 ----------------------
 def filter_keywords(entries):
     filtered = []
@@ -124,8 +182,46 @@ def filter_keywords(entries):
                 cpc >= MIN_CPC):
                 filtered.append(item)
 
+        elif source == "YouTube":
+            if item.get("views", 0) >= YOUTUBE_MIN_VIEWS and cpc >= MIN_CPC:
+                filtered.append(item)
+
+        elif source == "Instagram":
+            if item.get("posts", 0) >= INSTAGRAM_MIN_POSTS and cpc >= MIN_CPC:
+                filtered.append(item)
+
+        elif source == "TikTok":
+            if item.get("views", 0) >= TIKTOK_MIN_VIEWS and cpc >= MIN_CPC:
+                filtered.append(item)
+
     logging.info(f"필터링된 키워드 개수: {len(filtered)}")
     return filtered
+
+def normalize_score(item):
+    source = item.get("source", "")
+    if source == "GoogleTrends":
+        return item.get("score", 0) / GOOGLE_TRENDS_MIN_SCORE
+    if source == "Twitter":
+        return item.get("mentions", 0) / TWITTER_MIN_MENTIONS
+    if source == "YouTube":
+        return item.get("views", 0) / YOUTUBE_MIN_VIEWS
+    if source == "Instagram":
+        return item.get("posts", 0) / INSTAGRAM_MIN_POSTS
+    if source == "TikTok":
+        return item.get("views", 0) / TIKTOK_MIN_VIEWS
+    return 0
+
+def merge_and_normalize(entries):
+    merged = {}
+    for item in entries:
+        kw = item["keyword"]
+        score = normalize_score(item)
+        if kw not in merged:
+            merged[kw] = {"keyword": kw, "trend_score": 0, "sources": [], "cpc": item.get("cpc", 0)}
+        merged[kw]["trend_score"] += score
+        merged[kw]["sources"].append(item["source"])
+
+    return [v for v in merged.values() if v["trend_score"] >= MERGED_SCORE_THRESHOLD]
 
 # ---------------------- 키워드별 수집 작업 ----------------------
 def collect_data_for_keyword(keyword, pytrends):
@@ -143,6 +239,27 @@ def collect_data_for_keyword(keyword, pytrends):
             results.append(twitter)
     except Exception as e:
         logging.error(f"Twitter 처리 실패: {keyword} - {e}")
+
+    try:
+        youtube = fetch_youtube_trends(keyword)
+        if youtube:
+            results.append(youtube)
+    except Exception as e:
+        logging.error(f"YouTube 처리 실패: {keyword} - {e}")
+
+    try:
+        insta = fetch_instagram_metrics(keyword)
+        if insta:
+            results.append(insta)
+    except Exception as e:
+        logging.error(f"Instagram 처리 실패: {keyword} - {e}")
+
+    try:
+        tiktok = fetch_tiktok_metrics(keyword)
+        if tiktok:
+            results.append(tiktok)
+    except Exception as e:
+        logging.error(f"TikTok 처리 실패: {keyword} - {e}")
 
     return results
 
@@ -164,9 +281,10 @@ def run_pipeline():
                 logging.error(f"{kw} 처리 중 에러: {e}")
 
     filtered = filter_keywords(all_results)
+    merged = merge_and_normalize(filtered)
     result = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
-        "filtered_keywords": filtered
+        "trending_keywords": merged
     }
 
     try:
