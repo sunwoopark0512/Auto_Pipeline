@@ -16,6 +16,9 @@ GOOGLE_TRENDS_MIN_SCORE = 60
 GOOGLE_TRENDS_MIN_GROWTH = 1.3
 TWITTER_MIN_MENTIONS = 30
 TWITTER_MIN_TOP_RETWEET = 50
+YOUTUBE_MIN_VIEWS = 10000
+INSTAGRAM_MIN_POSTS = 40
+TIKTOK_MIN_VIEWS = 15000
 MIN_CPC = 1000  # 원 (더미 기준)
 
 # ---------------------- 로깅 설정 ----------------------
@@ -105,6 +108,60 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
         logging.error(f"Twitter 에러 '{keyword}': {e}")
         return None
 
+def fetch_youtube_trends(keyword):
+    try:
+        # 실사용 시 YouTube Data API 등을 활용하도록 수정
+        result = {
+            "keyword": keyword,
+            "source": "YouTube",
+            "views": random.randint(1000, 50000),
+            "likes": random.randint(50, 1000),
+            "cpc": fetch_cpc_dummy(keyword)
+        }
+        logging.info(
+            f"YouTube 수집 완료: {keyword} views={result['views']} likes={result['likes']} cpc={result['cpc']}"
+        )
+        return result
+    except Exception as e:
+        logging.error(f"YouTube 에러 '{keyword}': {e}")
+        return None
+
+def fetch_instagram_metrics(keyword):
+    try:
+        # 실사용 시 Instagram Graph API 등을 활용하도록 수정
+        result = {
+            "keyword": keyword,
+            "source": "Instagram",
+            "posts": random.randint(20, 200),
+            "likes": random.randint(100, 2000),
+            "cpc": fetch_cpc_dummy(keyword)
+        }
+        logging.info(
+            f"Instagram 수집 완료: {keyword} posts={result['posts']} likes={result['likes']} cpc={result['cpc']}"
+        )
+        return result
+    except Exception as e:
+        logging.error(f"Instagram 에러 '{keyword}': {e}")
+        return None
+
+def fetch_tiktok_metrics(keyword):
+    try:
+        # 실사용 시 TikTok API 등을 활용하도록 수정
+        result = {
+            "keyword": keyword,
+            "source": "TikTok",
+            "views": random.randint(5000, 60000),
+            "likes": random.randint(100, 5000),
+            "cpc": fetch_cpc_dummy(keyword)
+        }
+        logging.info(
+            f"TikTok 수집 완료: {keyword} views={result['views']} likes={result['likes']} cpc={result['cpc']}"
+        )
+        return result
+    except Exception as e:
+        logging.error(f"TikTok 에러 '{keyword}': {e}")
+        return None
+
 # ---------------------- 필터링 함수 ----------------------
 def filter_keywords(entries):
     filtered = []
@@ -121,6 +178,21 @@ def filter_keywords(entries):
         elif source == "Twitter":
             if (item.get("mentions", 0) >= TWITTER_MIN_MENTIONS and
                 item.get("top_retweet", 0) >= TWITTER_MIN_TOP_RETWEET and
+                cpc >= MIN_CPC):
+                filtered.append(item)
+
+        elif source == "YouTube":
+            if (item.get("views", 0) >= YOUTUBE_MIN_VIEWS and
+                cpc >= MIN_CPC):
+                filtered.append(item)
+
+        elif source == "Instagram":
+            if (item.get("posts", 0) >= INSTAGRAM_MIN_POSTS and
+                cpc >= MIN_CPC):
+                filtered.append(item)
+
+        elif source == "TikTok":
+            if (item.get("views", 0) >= TIKTOK_MIN_VIEWS and
                 cpc >= MIN_CPC):
                 filtered.append(item)
 
@@ -143,6 +215,27 @@ def collect_data_for_keyword(keyword, pytrends):
             results.append(twitter)
     except Exception as e:
         logging.error(f"Twitter 처리 실패: {keyword} - {e}")
+
+    try:
+        youtube = fetch_youtube_trends(keyword)
+        if youtube:
+            results.append(youtube)
+    except Exception as e:
+        logging.error(f"YouTube 처리 실패: {keyword} - {e}")
+
+    try:
+        instagram = fetch_instagram_metrics(keyword)
+        if instagram:
+            results.append(instagram)
+    except Exception as e:
+        logging.error(f"Instagram 처리 실패: {keyword} - {e}")
+
+    try:
+        tiktok = fetch_tiktok_metrics(keyword)
+        if tiktok:
+            results.append(tiktok)
+    except Exception as e:
+        logging.error(f"TikTok 처리 실패: {keyword} - {e}")
 
     return results
 
