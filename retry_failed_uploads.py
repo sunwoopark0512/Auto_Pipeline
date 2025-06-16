@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from content_validator import validate_content
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -46,6 +47,9 @@ def create_retry_page(item):
         "blog_paragraphs": item.get("blog_paragraphs", ["", "", ""]),
         "video_titles": item.get("video_titles", ["", ""])
     }
+
+    if not validate_content(parsed):
+        raise ValueError("Generated content contains banned terms")
 
     notion.pages.create(
         parent={"database_id": NOTION_HOOK_DB_ID},
