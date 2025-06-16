@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from security.encryption import EncryptionUtil
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -24,6 +25,9 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# Encryption utility
+encrypt_util = EncryptionUtil.from_env()
 
 # ---------------------- 유틸: Notion rich_text 제한 처리 ----------------------
 def truncate_text(text, max_length=2000):
@@ -81,8 +85,13 @@ def upload_all_hooks():
         return
 
     try:
-        with open(HOOK_JSON_PATH, 'r', encoding='utf-8') as f:
-            hooks = json.load(f)
+        with open(HOOK_JSON_PATH, 'rb') as f:
+            raw = f.read()
+        try:
+            decoded = encrypt_util.decrypt(raw)
+        except Exception:
+            decoded = raw
+        hooks = json.loads(decoded.decode('utf-8'))
     except Exception as e:
         logging.error(f"❗ 후킹 JSON 파일 읽기 오류: {e}")
         return
@@ -120,8 +129,9 @@ def upload_all_hooks():
 
     if failed_items:
         os.makedirs(os.path.dirname(FAILED_OUTPUT_PATH), exist_ok=True)
-        with open(FAILED_OUTPUT_PATH, 'w', encoding='utf-8') as f:
-            json.dump(failed_items, f, ensure_ascii=False, indent=2)
+        plaintext = json.dumps(failed_items, ensure_ascii=False, indent=2).encode('utf-8')
+        with open(FAILED_OUTPUT_PATH, 'wb') as f:
+            f.write(encrypt_util.encrypt(plaintext))
         logging.info(f"❗ 실패 항목 저장됨: {FAILED_OUTPUT_PATH}")
 
     logging.info("📊 후킹 업로드 요약")

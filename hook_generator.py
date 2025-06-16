@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from security.encryption import EncryptionUtil
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -18,6 +19,9 @@ openai.api_key = OPENAI_API_KEY
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+
+# Encryption utility
+encrypt_util = EncryptionUtil.from_env()
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
 def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
@@ -55,9 +59,14 @@ def generate_hooks():
         return
 
     try:
-        with open(KEYWORD_JSON_PATH, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            keywords = data.get("filtered_keywords", [])
+        with open(KEYWORD_JSON_PATH, 'rb') as f:
+            raw = f.read()
+        try:
+            decoded = encrypt_util.decrypt(raw)
+        except Exception:
+            decoded = raw
+        data = json.loads(decoded.decode('utf-8'))
+        keywords = data.get("filtered_keywords", [])
     except Exception as e:
         logging.error(f"❗ 키워드 파일 읽기 오류: {e}")
         return
@@ -65,10 +74,15 @@ def generate_hooks():
     existing = {}
     if os.path.exists(HOOK_OUTPUT_PATH):
         try:
-            with open(HOOK_OUTPUT_PATH, 'r', encoding='utf-8') as f:
-                existing_data = json.load(f)
-                for entry in existing_data:
-                    existing[entry['keyword']] = entry
+            with open(HOOK_OUTPUT_PATH, 'rb') as f:
+                raw = f.read()
+            try:
+                decoded = encrypt_util.decrypt(raw)
+            except Exception:
+                decoded = raw
+            existing_data = json.loads(decoded.decode('utf-8'))
+            for entry in existing_data:
+                existing[entry['keyword']] = entry
         except Exception as e:
             logging.warning(f"기존 결과 로딩 실패: {e}")
 
@@ -125,13 +139,15 @@ def generate_hooks():
 
     full_output = list(existing.values()) + new_output
     os.makedirs(os.path.dirname(HOOK_OUTPUT_PATH), exist_ok=True)
-    with open(HOOK_OUTPUT_PATH, 'w', encoding='utf-8') as f:
-        json.dump(full_output, f, ensure_ascii=False, indent=2)
+    plaintext = json.dumps(full_output, ensure_ascii=False, indent=2).encode('utf-8')
+    with open(HOOK_OUTPUT_PATH, 'wb') as f:
+        f.write(encrypt_util.encrypt(plaintext))
 
     if failed_output:
         os.makedirs(os.path.dirname(FAILED_HOOK_PATH), exist_ok=True)
-        with open(FAILED_HOOK_PATH, 'w', encoding='utf-8') as f:
-            json.dump(failed_output, f, ensure_ascii=False, indent=2)
+        plaintext = json.dumps(failed_output, ensure_ascii=False, indent=2).encode('utf-8')
+        with open(FAILED_HOOK_PATH, 'wb') as f:
+            f.write(encrypt_util.encrypt(plaintext))
         logging.warning(f"⚠️ 실패 후킹 저장 완료: {FAILED_HOOK_PATH}")
 
     logging.info("📊 생성 작업 요약")
