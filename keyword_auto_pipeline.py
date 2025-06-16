@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
 import random  # CPC 더미 데이터용
+from security.encryption import EncryptionUtil
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
@@ -23,6 +24,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s:%(message)s'
 )
+
+# Encryption utility
+encrypt_util = EncryptionUtil.from_env()
 
 # ---------------------- 토픽별 세부 키워드 쌍 ----------------------
 TOPIC_DETAILS = {
@@ -171,8 +175,9 @@ def run_pipeline():
 
     try:
         os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-        with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
+        plaintext = json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8")
+        with open(OUTPUT_PATH, "wb") as f:
+            f.write(encrypt_util.encrypt(plaintext))
         logging.info(f"✅ 결과 저장 완료: {OUTPUT_PATH}")
     except Exception as e:
         logging.error(f"결과 저장 실패: {e}")
