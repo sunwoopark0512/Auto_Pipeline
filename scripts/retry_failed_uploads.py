@@ -30,6 +30,7 @@ def load_failed_items():
     if not os.path.exists(FAILED_PATH):
         logging.warning(f"❗ 실패 항목 파일이 존재하지 않습니다: {FAILED_PATH}")
         return []
+    os.makedirs(os.path.dirname(FAILED_PATH), exist_ok=True)
     with open(FAILED_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
 
@@ -88,6 +89,7 @@ def retry_failed_uploads():
 
     # 실패 파일 덮어쓰기
     if still_failed:
+        os.makedirs(os.path.dirname(FAILED_PATH), exist_ok=True)
         with open(FAILED_PATH, 'w', encoding='utf-8') as f:
             json.dump(still_failed, f, ensure_ascii=False, indent=2)
         logging.warning(f"🔁 여전히 실패한 항목 {len(still_failed)}개가 남아 있습니다.")
