@@ -13,6 +13,7 @@ HOOK_OUTPUT_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_HOOK_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_hooks.json")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_DELAY = float(os.getenv("API_DELAY", "1.0"))
+TARGET_PLATFORM = os.getenv("HOOK_PLATFORM", "youtube")
 
 openai.api_key = OPENAI_API_KEY
 
@@ -20,18 +21,33 @@ openai.api_key = OPENAI_API_KEY
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
-def generate_hook_prompt(keyword, topic, source, score, growth, mentions):
-    base = f"""
-    주제: {keyword}
-    출처: {source}
-    트렌드 점수: {score}, 성장률: {growth}, 트윗 수: {mentions}
-    이 정보를 기반으로:
-    - 숏폼 영상의 후킹 문장 2개
-    - 블로그 포스트의 3문단 초안
-    - YouTube 영상 제목 예시 2개
-    를 마케팅적으로 끌리는 문장으로 생성해줘. 말투는 친근하면서도 전문가처럼.
-    """
-    return base.strip()
+def generate_hook_prompt(keyword, topic, source, score, growth, mentions, platform):
+    base = [
+        f"주제: {keyword}",
+        f"출처: {source}",
+        f"트렌드 점수: {score}, 성장률: {growth}, 트윗 수: {mentions}",
+        "이 정보를 기반으로:",
+    ]
+
+    hook_line = "- 숏폼 영상의 후킹 문장 2개"
+    video_line = "- YouTube 영상 제목 예시 2개"
+
+    pl = platform.lower()
+    if pl == "tiktok":
+        hook_line = "- TikTok FYP에 최적화된 숏폼 후킹 문장 2개"
+        video_line = "- YouTube SEO 키워드를 포함한 영상 제목 예시 2개"
+    elif pl == "youtube":
+        hook_line = "- TikTok에서 사용 가능한 짧은 후킹 문장 2개"
+        video_line = "- YouTube SEO 키워드를 고려한 영상 제목 예시 2개"
+
+    base.extend([
+        hook_line,
+        "- 블로그 포스트의 3문단 초안",
+        video_line,
+        "마케팅적으로 끌리는 문장으로 생성해줘. 말투는 친근하면서도 전문가처럼.",
+    ])
+
+    return "\n".join(base).strip()
 
 # ---------------------- GPT 호출 함수 (재시도 포함) ----------------------
 def get_gpt_response(prompt, retries=3):
@@ -93,7 +109,8 @@ def generate_hooks():
             source=item.get('source'),
             score=item.get('score', 0),
             growth=item.get('growth', 0),
-            mentions=item.get('mentions', 0)
+            mentions=item.get('mentions', 0),
+            platform=TARGET_PLATFORM
         )
         response = get_gpt_response(prompt)
 
