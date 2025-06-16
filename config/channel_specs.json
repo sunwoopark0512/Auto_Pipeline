@@ -1,0 +1,69 @@
+{
+  "channels": [
+    {
+      "name": "유튜브",
+      "revenue_models": ["광고 수익", "제휴 마케팅"],
+      "cpm": 2000,
+      "cpa": 10000,
+      "cpc": 300,
+      "content_spec": {
+        "text_length": "제목 100자 이내, 설명 5000자 이내",
+        "image_size": "썸네일 1280x720",
+        "video_size": "최대 12시간 / 128GB",
+        "hashtags": 15
+      }
+    },
+    {
+      "name": "블로그",
+      "revenue_models": ["디스플레이 광고", "제휴 링크"],
+      "cpm": 1500,
+      "cpa": 7000,
+      "cpc": 200,
+      "content_spec": {
+        "text_length": "본문 3000자 이상 권장",
+        "image_size": "본문 너비 1200px",
+        "video_size": "임베드 가능",
+        "hashtags": 10
+      }
+    },
+    {
+      "name": "인스타그램",
+      "revenue_models": ["브랜드 광고", "제품 판매"],
+      "cpm": 2500,
+      "cpa": 9000,
+      "cpc": 250,
+      "content_spec": {
+        "text_length": "캡션 최대 2200자",
+        "image_size": "1080x1080",
+        "video_size": "Reels 최대 60초",
+        "hashtags": 30
+      }
+    },
+    {
+      "name": "트위터",
+      "revenue_models": ["프로모션 트윗", "어필리에이트 링크"],
+      "cpm": 1800,
+      "cpa": 8000,
+      "cpc": 220,
+      "content_spec": {
+        "text_length": "280자",
+        "image_size": "1600x900",
+        "video_size": "2분 20초",
+        "hashtags": 2
+      }
+    },
+    {
+      "name": "이메일 마케팅",
+      "revenue_models": ["구독 기반", "제품 판매"],
+      "cpm": 1000,
+      "cpa": 12000,
+      "cpc": 180,
+      "content_spec": {
+        "text_length": "본문 1500자 이내",
+        "image_size": "가로 600px 권장",
+        "video_size": "링크 형태",
+        "hashtags": 0
+      }
+    }
+  ]
+}
