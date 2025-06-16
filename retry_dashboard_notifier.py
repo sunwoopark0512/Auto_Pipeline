@@ -4,14 +4,20 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from privacy_manager import request_data_deletion
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
 NOTION_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_KPI_DB_ID = os.getenv("NOTION_KPI_DB_ID")
 SUMMARY_PATH = os.getenv("REPARSED_OUTPUT_PATH", "logs/failed_keywords_reparsed.json")
+DELETE_USER_ID = os.getenv("DELETE_USER_ID")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+
+# ---------------------- 개인정보 삭제 처리 ----------------------
+if DELETE_USER_ID:
+    request_data_deletion(DELETE_USER_ID, SUMMARY_PATH)
 
 # ---------------------- Notion 클라이언트 ----------------------
 if not NOTION_TOKEN or not NOTION_KPI_DB_ID:

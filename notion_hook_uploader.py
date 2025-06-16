@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from privacy_manager import request_data_deletion
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -14,6 +15,7 @@ NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
+DELETE_USER_ID = os.getenv("DELETE_USER_ID")
 
 notion = Client(auth=NOTION_TOKEN)
 logging.basicConfig(
@@ -24,6 +26,11 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# ---------------------- 개인정보 삭제 처리 ----------------------
+if DELETE_USER_ID:
+    request_data_deletion(DELETE_USER_ID, HOOK_JSON_PATH)
+    request_data_deletion(DELETE_USER_ID, FAILED_OUTPUT_PATH)
 
 # ---------------------- 유틸: Notion rich_text 제한 처리 ----------------------
 def truncate_text(text, max_length=2000):

@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
 import random  # CPC 더미 데이터용
+from privacy_manager import request_data_deletion
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
@@ -17,12 +18,17 @@ GOOGLE_TRENDS_MIN_GROWTH = 1.3
 TWITTER_MIN_MENTIONS = 30
 TWITTER_MIN_TOP_RETWEET = 50
 MIN_CPC = 1000  # 원 (더미 기준)
+DELETE_USER_ID = os.getenv("DELETE_USER_ID")
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s:%(message)s'
 )
+
+# ---------------------- 개인정보 삭제 처리 ----------------------
+if DELETE_USER_ID:
+    request_data_deletion(DELETE_USER_ID, OUTPUT_PATH)
 
 # ---------------------- 토픽별 세부 키워드 쌍 ----------------------
 TOPIC_DETAILS = {

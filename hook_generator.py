@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
+from privacy_manager import request_data_deletion
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -13,11 +14,17 @@ HOOK_OUTPUT_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_HOOK_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_hooks.json")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 API_DELAY = float(os.getenv("API_DELAY", "1.0"))
+DELETE_USER_ID = os.getenv("DELETE_USER_ID")
 
 openai.api_key = OPENAI_API_KEY
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+
+# ---------------------- 개인정보 삭제 처리 ----------------------
+if DELETE_USER_ID:
+    request_data_deletion(DELETE_USER_ID, HOOK_OUTPUT_PATH)
+    request_data_deletion(DELETE_USER_ID, FAILED_HOOK_PATH)
 
 # ---------------------- GPT 프롬프트 생성 함수 ----------------------
 def generate_hook_prompt(keyword, topic, source, score, growth, mentions):

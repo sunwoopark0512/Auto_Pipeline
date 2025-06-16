@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from privacy_manager import request_data_deletion
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -14,9 +15,15 @@ KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_c
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
 CACHE_PATH = os.getenv("UPLOADED_CACHE_PATH", "data/uploaded_keywords_cache.json")
 FAILED_PATH = os.getenv("FAILED_UPLOADS_PATH", "logs/failed_uploads.json")
+DELETE_USER_ID = os.getenv("DELETE_USER_ID")
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+
+# ---------------------- 개인정보 삭제 처리 ----------------------
+if DELETE_USER_ID:
+    request_data_deletion(DELETE_USER_ID, CACHE_PATH)
+    request_data_deletion(DELETE_USER_ID, FAILED_PATH)
 
 # ---------------------- Notion 클라이언트 ----------------------
 notion = Client(auth=NOTION_TOKEN)
