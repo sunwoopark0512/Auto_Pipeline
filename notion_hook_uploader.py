@@ -3,6 +3,7 @@ import json
 import time
 import logging
 import re
+from policy_checker import validate_hook_item
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
@@ -100,6 +101,14 @@ def upload_all_hooks():
         if page_exists(keyword):
             logging.info(f"⏭️ 중복 스킵: {keyword}")
             skipped += 1
+            continue
+
+        valid, reason = validate_hook_item(item)
+        if not valid:
+            logging.error(f"🚫 정책 위반: {keyword} - {reason}")
+            item["upload_error"] = f"policy violation: {reason}"
+            failed_items.append(item)
+            failed += 1
             continue
 
         for attempt in range(3):
