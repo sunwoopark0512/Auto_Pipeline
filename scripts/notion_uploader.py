@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from utils import truncate_text, page_exists
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -13,7 +14,7 @@ NOTION_DB_ID = os.getenv("NOTION_DB_ID")
 KEYWORD_JSON_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
 CACHE_PATH = os.getenv("UPLOADED_CACHE_PATH", "data/uploaded_keywords_cache.json")
-FAILED_PATH = os.getenv("FAILED_UPLOADS_PATH", "logs/failed_uploads.json")
+FAILED_PATH = os.getenv("FAILED_HOOK_PATH", "logs/failed_uploads.json")
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
@@ -26,24 +27,18 @@ if os.path.exists(CACHE_PATH):
     with open(CACHE_PATH, 'r', encoding='utf-8') as f:
         uploaded_cache = set(json.load(f))
 else:
-    uploaded_cache = set()
+uploaded_cache = set()
 
 failed_uploads = []
 
 # ---------------------- 중복 키워드 확인 함수 ----------------------
-def page_exists(keyword):
+def page_exists_cached(keyword):
     if keyword in uploaded_cache:
         return True
-    try:
-        query = notion.databases.query(
-            database_id=NOTION_DB_ID,
-            filter={"property": "키워드", "title": {"equals": keyword}},
-            page_size=1
-        )
-        return len(query.get("results", [])) > 0
-    except Exception as e:
-        logging.warning(f"⚠️ 중복 확인 실패: {keyword} - {e}")
-        return False
+    exists = page_exists(notion, NOTION_DB_ID, keyword)
+    if exists:
+        uploaded_cache.add(keyword)
+    return exists
 
 # ---------------------- Notion 페이지 생성 함수 ----------------------
 def create_notion_page(item):
@@ -87,7 +82,7 @@ def upload_all_keywords():
             logging.warning("⛔ 빈 키워드 항목 발견, 건너뜁니다.")
             continue
 
-        if page_exists(keyword):
+        if page_exists_cached(keyword):
             logging.info(f"⏭️ 중복 스킵: {keyword}")
             skipped += 1
             continue
