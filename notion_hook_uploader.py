@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from content_validator import validate_content
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -59,6 +60,8 @@ def parse_generated_text(text):
 def create_notion_page(item):
     keyword = item["keyword"]
     parsed = parse_generated_text(item.get("generated_text", ""))
+    if not validate_content(parsed):
+        raise ValueError("Generated content contains banned terms")
     topic = keyword.split()[0] if " " in keyword else keyword
 
     notion.pages.create(
