@@ -4,6 +4,7 @@ import time
 import logging
 import re
 from datetime import datetime
+import asyncio
 from notion_client import Client
 from dotenv import load_dotenv
 
@@ -14,6 +15,8 @@ NOTION_HOOK_DB_ID = os.getenv("NOTION_HOOK_DB_ID")
 HOOK_JSON_PATH = os.getenv("HOOK_OUTPUT_PATH", "data/generated_hooks.json")
 FAILED_OUTPUT_PATH = "data/upload_failed_hooks.json"
 UPLOAD_DELAY = float(os.getenv("UPLOAD_DELAY", "0.5"))
+CACHE_PATH = os.getenv("HOOK_CACHE_PATH", "data/uploaded_hooks_cache.json")
+UPLOAD_WORKERS = int(os.getenv("UPLOAD_WORKERS", "5"))
 
 notion = Client(auth=NOTION_TOKEN)
 logging.basicConfig(
@@ -25,19 +28,34 @@ logging.basicConfig(
     ]
 )
 
+# ---------------------- 캐시 로딩 ----------------------
+if os.path.exists(CACHE_PATH):
+    with open(CACHE_PATH, 'r', encoding='utf-8') as f:
+        uploaded_cache = set(json.load(f))
+else:
+    uploaded_cache = set()
+
 # ---------------------- 유틸: Notion rich_text 제한 처리 ----------------------
 def truncate_text(text, max_length=2000):
     return text if len(text) <= max_length else text[:max_length]
 
 # ---------------------- 중복 키워드 확인 함수 ----------------------
-def page_exists(keyword):
+def _page_exists_sync(keyword):
+    query = notion.databases.query(
+        database_id=NOTION_HOOK_DB_ID,
+        filter={"property": "키워드", "title": {"equals": keyword}},
+        page_size=1
+    )
+    return len(query.get("results", [])) > 0
+
+async def page_exists(keyword):
+    if keyword in uploaded_cache:
+        return True
     try:
-        query = notion.databases.query(
-            database_id=NOTION_HOOK_DB_ID,
-            filter={"property": "키워드", "title": {"equals": keyword}},
-            page_size=1
-        )
-        return len(query.get("results", [])) > 0
+        exists = await asyncio.to_thread(_page_exists_sync, keyword)
+        if exists:
+            uploaded_cache.add(keyword)
+        return exists
     except Exception as e:
         logging.warning(f"⚠️ 중복 확인 실패: {keyword} - {e}")
         return False
@@ -74,8 +92,11 @@ def create_notion_page(item):
         }
     )
 
+async def create_notion_page_async(item):
+    await asyncio.to_thread(create_notion_page, item)
+
 # ---------------------- 업로드 실행 함수 ----------------------
-def upload_all_hooks():
+async def upload_all_hooks():
     if not NOTION_TOKEN or not NOTION_HOOK_DB_ID:
         logging.error("❗ 환경 변수(NOTION_API_TOKEN, NOTION_HOOK_DB_ID)가 누락되었습니다.")
         return
@@ -87,36 +108,44 @@ def upload_all_hooks():
         logging.error(f"❗ 후킹 JSON 파일 읽기 오류: {e}")
         return
 
-    total, success, skipped, failed = 0, 0, 0, 0
-    failed_items = []
+    sem = asyncio.Semaphore(UPLOAD_WORKERS)
+    results = []
 
-    for item in hooks:
+    async def process_item(item):
         keyword = item.get("keyword")
         if not keyword:
             logging.warning("⛔ 빈 키워드 항목, 건너뜁니다.")
-            continue
+            return "skip", None
 
-        total += 1
-        if page_exists(keyword):
-            logging.info(f"⏭️ 중복 스킵: {keyword}")
-            skipped += 1
-            continue
+        async with sem:
+            if await page_exists(keyword):
+                logging.info(f"⏭️ 중복 스킵: {keyword}")
+                await asyncio.sleep(UPLOAD_DELAY)
+                return "skip", None
 
-        for attempt in range(3):
-            try:
-                create_notion_page(item)
-                logging.info(f"✅ 업로드 완료: {keyword}")
-                success += 1
-                break
-            except Exception as e:
-                logging.warning(f"🔁 재시도 {attempt+1}/3 - {keyword} | 오류: {e}")
-                time.sleep(1)
-        else:
+            for attempt in range(3):
+                try:
+                    await create_notion_page_async(item)
+                    uploaded_cache.add(keyword)
+                    logging.info(f"✅ 업로드 완료: {keyword}")
+                    await asyncio.sleep(UPLOAD_DELAY)
+                    return "success", None
+                except Exception as e:
+                    logging.warning(f"🔁 재시도 {attempt+1}/3 - {keyword} | 오류: {e}")
+                    await asyncio.sleep(1)
+
             logging.error(f"❌ 업로드 실패: {keyword}")
-            failed_items.append(item)
-            failed += 1
+            await asyncio.sleep(UPLOAD_DELAY)
+            return "failed", item
 
-        time.sleep(UPLOAD_DELAY)
+    tasks = [process_item(item) for item in hooks]
+    results = await asyncio.gather(*tasks)
+
+    total = len(hooks)
+    success = sum(1 for r, _ in results if r == "success")
+    skipped = sum(1 for r, _ in results if r == "skip")
+    failed_items = [item for r, item in results if r == "failed"]
+    failed = len(failed_items)
 
     if failed_items:
         os.makedirs(os.path.dirname(FAILED_OUTPUT_PATH), exist_ok=True)
@@ -124,8 +153,13 @@ def upload_all_hooks():
             json.dump(failed_items, f, ensure_ascii=False, indent=2)
         logging.info(f"❗ 실패 항목 저장됨: {FAILED_OUTPUT_PATH}")
 
+    if uploaded_cache:
+        os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
+        with open(CACHE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(list(uploaded_cache), f, ensure_ascii=False, indent=2)
+
     logging.info("📊 후킹 업로드 요약")
     logging.info(f"총 항목: {total} | 성공: {success} | 중복스킵: {skipped} | 실패: {failed}")
 
 if __name__ == "__main__":
-    upload_all_hooks()
+    asyncio.run(upload_all_hooks())
