@@ -6,7 +6,8 @@ from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
-import random  # CPC 더미 데이터용
+from google.ads.googleads.client import GoogleAdsClient
+from google.ads.googleads.errors import GoogleAdsException
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
@@ -16,7 +17,7 @@ GOOGLE_TRENDS_MIN_SCORE = 60
 GOOGLE_TRENDS_MIN_GROWTH = 1.3
 TWITTER_MIN_MENTIONS = 30
 TWITTER_MIN_TOP_RETWEET = 50
-MIN_CPC = 1000  # 원 (더미 기준)
+MIN_CPC = 1000  # 원 (Google Ads API 기준)
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
@@ -46,14 +47,55 @@ def generate_keyword_pairs(topic_details):
             pairs.append(f"{topic} {sub}")
     return pairs
 
-# ---------------------- CPC 캐시 ----------------------
+# ---------------------- CPC 캐시 및 Google Ads 설정 ----------------------
 cpc_cache = {}
+google_ads_client = None
+GOOGLE_ADS_CONFIG_PATH = os.getenv("GOOGLE_ADS_CONFIG_PATH", "google-ads.yaml")
+GOOGLE_ADS_CUSTOMER_ID = os.getenv("GOOGLE_ADS_CUSTOMER_ID")
 
-def fetch_cpc_dummy(keyword):
-    if keyword not in cpc_cache:
-        cpc_cache[keyword] = random.randint(500, 2000)
-        logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
-    return cpc_cache[keyword]
+def fetch_cpc(keyword):
+    global google_ads_client
+
+    if keyword in cpc_cache:
+        return cpc_cache[keyword]
+
+    if google_ads_client is None:
+        try:
+            google_ads_client = GoogleAdsClient.load_from_storage(
+                GOOGLE_ADS_CONFIG_PATH
+            )
+        except Exception as e:
+            logging.error(f"Google Ads 클라이언트 초기화 실패: {e}")
+            return None
+
+    if not GOOGLE_ADS_CUSTOMER_ID:
+        logging.error("Google Ads 고객 ID가 설정되지 않았습니다.")
+        return None
+
+    query = (
+        f"SELECT metrics.average_cpc FROM keyword_view "
+        f"WHERE segments.keyword.info.text = '{keyword}' LIMIT 1"
+    )
+
+    try:
+        ga_service = google_ads_client.get_service("GoogleAdsService")
+        response = ga_service.search(
+            customer_id=GOOGLE_ADS_CUSTOMER_ID, query=query
+        )
+        for row in response:
+            micros = row.metrics.average_cpc.micros
+            cpc_value = int(micros / 1_000_000)
+            cpc_cache[keyword] = cpc_value
+            logging.debug(
+                f"CPC 가져오기 성공: {keyword} = {cpc_cache[keyword]}"
+            )
+            return cpc_cache[keyword]
+    except GoogleAdsException as ex:
+        logging.error(f"Google Ads API 오류 ({keyword}): {ex}")
+    except Exception as e:
+        logging.error(f"CPC 조회 실패 ({keyword}): {e}")
+
+    return None
 
 # ---------------------- 데이터 수집 함수 ----------------------
 def fetch_google_trends(keyword, pytrends):
@@ -73,7 +115,7 @@ def fetch_google_trends(keyword, pytrends):
             "source": "GoogleTrends",
             "score": int(recent_avg),
             "growth": growth,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
         return result
@@ -97,7 +139,7 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "source": "Twitter",
             "mentions": mentions,
             "top_retweet": top_retweets[0] if top_retweets else 0,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
         return result
@@ -110,7 +152,8 @@ def filter_keywords(entries):
     filtered = []
     for item in entries:
         source = item.get("source", "")
-        cpc = item.get("cpc", 0)
+        cpc = item.get("cpc")
+        cpc = cpc if cpc is not None else 0
 
         if source == "GoogleTrends":
             if (item.get("score", 0) >= GOOGLE_TRENDS_MIN_SCORE and
