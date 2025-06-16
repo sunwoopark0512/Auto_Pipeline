@@ -88,6 +88,7 @@ def retry_failed_uploads():
 
     # 실패 파일 덮어쓰기
     if still_failed:
+        os.makedirs(os.path.dirname(FAILED_PATH), exist_ok=True)
         with open(FAILED_PATH, 'w', encoding='utf-8') as f:
             json.dump(still_failed, f, ensure_ascii=False, indent=2)
         logging.warning(f"🔁 여전히 실패한 항목 {len(still_failed)}개가 남아 있습니다.")
@@ -98,3 +99,4 @@ def retry_failed_uploads():
 
 if __name__ == "__main__":
     retry_failed_uploads()
+
