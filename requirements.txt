@@ -1,0 +1,6 @@
+# Requires Python 3.10 or higher
+openai
+notion-client
+python-dotenv
+pytrends
+snscrape
