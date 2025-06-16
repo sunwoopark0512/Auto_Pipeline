@@ -152,7 +152,8 @@ def run_pipeline():
     pytrends = TrendReq(hl='ko', tz=540)
     all_results = []
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    max_workers = int(os.getenv("MAX_WORKERS", 10))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(collect_data_for_keyword, kw, pytrends): kw for kw in keywords}
 
         for future in as_completed(futures):
