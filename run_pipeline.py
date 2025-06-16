@@ -20,6 +20,11 @@ PIPELINE_SEQUENCE = [
     "retry_dashboard_notifier.py",
 ]
 
+SCRIPTS_DIRS = [
+    os.path.dirname(os.path.abspath(__file__)),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"),
+]
+
 # ---------------------- 스크립트 실행 함수 ----------------------
 def run_script(script: str) -> bool:
     """Execute a Python script located either at repo root or within scripts/"""
