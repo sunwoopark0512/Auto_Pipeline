@@ -1,0 +1,3 @@
+- alert: LLMHighLatency
+  expr: phoenix_llm_latency_seconds_mean > 2
+  for: 2m

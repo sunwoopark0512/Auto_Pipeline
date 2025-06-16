@@ -1,0 +1,5 @@
+online_store:
+  type: dynamodb
+  region: ap-northeast-2
+  aws_access_key_id: ${AWS_KEY}
+  aws_secret_access_key: ${AWS_SECRET}
