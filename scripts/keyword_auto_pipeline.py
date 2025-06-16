@@ -7,10 +7,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
 import random  # CPC 더미 데이터용
+from common.env import env
 
 # ---------------------- 설정 ----------------------
-CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
-OUTPUT_PATH = os.getenv("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
+CONFIG_PATH = env("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
+OUTPUT_PATH = env("KEYWORD_OUTPUT_PATH", "data/keyword_output_with_cpc.json")
 
 GOOGLE_TRENDS_MIN_SCORE = 60
 GOOGLE_TRENDS_MIN_GROWTH = 1.3
