@@ -1,55 +1,21 @@
+--- README.md
 # Auto Pipeline
 
-This repository contains a collection of scripts that generate trending keywords, create marketing hooks using OpenAI and upload the results to Notion.
+이 저장소는 트렌딩 키워드 생성, OpenAI를 이용한 마케팅 훅 생성 및 Notion 업로드와  
+다양한 플랫폼용 콘텐츠 변환 도구를 한 곳에 모아둔 프로젝트입니다.
 
-## Setup
-1. Install Python 3.10 or later.
-2. Install the required packages:
+## 주요 기능
+- **키워드 자동화**  
+  `keyword_auto_pipeline.py`로 트렌딩 키워드를 수집해 JSON 파일로 저장  
+- **훅 생성**  
+  `hook_generator.py`로 키워드를 기반한 마케팅 훅 생성  
+- **Notion 업로드**  
+  `notion_hook_uploader.py`로 생성된 훅을 Notion 데이터베이스에 업로드  
+- **콘텐츠 변환**  
+  `content_converter.py`의 `convert_content` 함수로 YouTube·Instagram·TikTok·Facebook·LinkedIn용 스크립트 생성
+
+## 설치 및 초기 설정
+1. Python 3.10 이상 설치  
+2. 저장소 클론 후 의존성 설치:
    ```bash
-   pip install openai notion-client python-dotenv pytrends snscrape
-   ```
-3. Create a `.env` file based on `.env.example` and fill in your API keys and optional settings.
-
-## Usage
-The main workflow consists of three steps and can be executed manually:
-
-1. **Generate keywords**
-   ```bash
-   python keyword_auto_pipeline.py
-   ```
-   This produces a JSON file defined by `KEYWORD_OUTPUT_PATH` (default: `data/keyword_output_with_cpc.json`).
-
-2. **Generate hooks from the keywords**
-   ```bash
-   python hook_generator.py
-   ```
-   The script reads keywords from `KEYWORD_OUTPUT_PATH` and writes hook results to `HOOK_OUTPUT_PATH` (default: `data/generated_hooks.json`).
-   `OPENAI_API_KEY` must be set for this step.
-
-3. **Upload hooks to Notion**
-   ```bash
-   python notion_hook_uploader.py
-   ```
-   The file defined by `HOOK_OUTPUT_PATH` is uploaded to the Notion database specified by `NOTION_HOOK_DB_ID`.
-
-Optional scripts such as `retry_failed_uploads.py` and `retry_dashboard_notifier.py` can be used to retry failed uploads and log KPI metrics.
-
-## Environment Variables
-Environment variables are loaded via `python-dotenv`. The main ones are:
-
-- `OPENAI_API_KEY` – API key used by `hook_generator.py`.
-- `NOTION_API_TOKEN` – token for the Notion client.
-- `NOTION_HOOK_DB_ID` – database ID used by `notion_hook_uploader.py`.
-- `NOTION_DB_ID` – database ID for `scripts/notion_uploader.py`.
-- `NOTION_KPI_DB_ID` – KPI dashboard used by `retry_dashboard_notifier.py`.
-- `KEYWORD_OUTPUT_PATH` – path for keyword JSON output.
-- `HOOK_OUTPUT_PATH` – path for generated hook JSON.
-- `FAILED_HOOK_PATH` – storage for failed hook generations.
-- `FAILED_UPLOADS_PATH` – storage for failed Notion uploads.
-- `UPLOADED_CACHE_PATH` – cache for successfully uploaded keywords.
-- `REPARSED_OUTPUT_PATH` – file used when retrying failed uploads.
-- `API_DELAY`, `UPLOAD_DELAY`, `RETRY_DELAY` – delays between API calls.
-- `TOPIC_CHANNELS_PATH` – location of topic configuration JSON.
-
-All of these variables may be defined in a `.env` file so they are automatically loaded when running the scripts.
-
+   pip install -r requirements.txt
