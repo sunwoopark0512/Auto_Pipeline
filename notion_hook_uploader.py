@@ -4,6 +4,7 @@ import time
 import logging
 import re
 from datetime import datetime
+from content_validator import ensure_valid
 from notion_client import Client
 from dotenv import load_dotenv
 
@@ -60,6 +61,12 @@ def create_notion_page(item):
     keyword = item["keyword"]
     parsed = parse_generated_text(item.get("generated_text", ""))
     topic = keyword.split()[0] if " " in keyword else keyword
+
+    # Validate content against guidelines
+    for line in parsed["hook_lines"]:
+        ensure_valid(line, "notion")
+    for para in parsed["blog_paragraphs"]:
+        ensure_valid(para, "blog")
 
     notion.pages.create(
         parent={"database_id": NOTION_HOOK_DB_ID},
