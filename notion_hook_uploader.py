@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from notion_client import Client
 from dotenv import load_dotenv
+from compliance import is_compliant
 
 # ---------------------- 설정 로딩 ----------------------
 load_dotenv()
@@ -99,6 +100,14 @@ def upload_all_hooks():
         total += 1
         if page_exists(keyword):
             logging.info(f"⏭️ 중복 스킵: {keyword}")
+            skipped += 1
+            continue
+
+        compliant, found_terms = is_compliant(item.get("generated_text", ""), "notion")
+        if not compliant:
+            logging.warning(
+                f"🚫 금지어 포함 스킵: {keyword} -> {', '.join(found_terms)}"
+            )
             skipped += 1
             continue
 
