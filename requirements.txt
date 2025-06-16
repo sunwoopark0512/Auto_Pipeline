@@ -1,0 +1,6 @@
+# Recommended Python version: 3.10
+openai
+notion-client
+python-dotenv
+pytrends
+snscrape
