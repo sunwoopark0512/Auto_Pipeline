@@ -6,7 +6,7 @@ from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pytrends.request import TrendReq
 import snscrape.modules.twitter as sntwitter
-import random  # CPC 더미 데이터용
+from google.ads.googleads.client import GoogleAdsClient
 
 # ---------------------- 설정 ----------------------
 CONFIG_PATH = os.getenv("TOPIC_CHANNELS_PATH", "config/topic_channels.json")
@@ -16,7 +16,11 @@ GOOGLE_TRENDS_MIN_SCORE = 60
 GOOGLE_TRENDS_MIN_GROWTH = 1.3
 TWITTER_MIN_MENTIONS = 30
 TWITTER_MIN_TOP_RETWEET = 50
-MIN_CPC = 1000  # 원 (더미 기준)
+MIN_CPC = 1000  # 원 기준 최소 CPC 필터링 값
+
+# Google Ads 설정 (google-ads.yaml 경로 또는 환경 변수 사용)
+GOOGLE_ADS_CONFIG_PATH = os.getenv("GOOGLE_ADS_CONFIG_PATH", "google-ads.yaml")
+GOOGLE_ADS_CUSTOMER_ID = os.getenv("GOOGLE_ADS_CUSTOMER_ID")
 
 # ---------------------- 로깅 설정 ----------------------
 logging.basicConfig(
@@ -49,10 +53,39 @@ def generate_keyword_pairs(topic_details):
 # ---------------------- CPC 캐시 ----------------------
 cpc_cache = {}
 
-def fetch_cpc_dummy(keyword):
-    if keyword not in cpc_cache:
-        cpc_cache[keyword] = random.randint(500, 2000)
-        logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
+def fetch_cpc(keyword):
+    """Google Ads API를 사용해 해당 키워드의 평균 CPC(원)를 가져온다."""
+    if keyword in cpc_cache:
+        return cpc_cache[keyword]
+
+    if not GOOGLE_ADS_CUSTOMER_ID:
+        logging.warning("Google Ads 설정이 없어 CPC를 0으로 반환합니다.")
+        cpc_cache[keyword] = 0
+        return 0
+
+    try:
+        client = GoogleAdsClient.load_from_storage(path=GOOGLE_ADS_CONFIG_PATH)
+        service = client.get_service("KeywordPlanIdeaService")
+
+        request = client.get_type("GenerateKeywordIdeasRequest")
+        request.customer_id = GOOGLE_ADS_CUSTOMER_ID
+        request.keyword_plan_network = (
+            client.enums.KeywordPlanNetworkEnum.GOOGLE_SEARCH
+        )
+        request.keyword_seed.keywords.append(keyword)
+
+        response = service.generate_keyword_ideas(request=request)
+        for idea in response:
+            micros = idea.keyword_idea_metrics.average_cpc_micros
+            cpc_cache[keyword] = int(micros / 1_000_000) if micros else 0
+            break
+        else:
+            cpc_cache[keyword] = 0
+    except Exception as e:
+        logging.error(f"CPC 조회 실패: {keyword} - {e}")
+        cpc_cache[keyword] = 0
+
+    logging.debug(f"CPC 캐시 생성: {keyword} = {cpc_cache[keyword]}")
     return cpc_cache[keyword]
 
 # ---------------------- 데이터 수집 함수 ----------------------
@@ -73,7 +106,7 @@ def fetch_google_trends(keyword, pytrends):
             "source": "GoogleTrends",
             "score": int(recent_avg),
             "growth": growth,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Google Trends 수집 완료: {keyword} score={result['score']} growth={result['growth']} cpc={result['cpc']}")
         return result
@@ -97,7 +130,7 @@ def fetch_twitter_metrics(keyword, max_tweets=100):
             "source": "Twitter",
             "mentions": mentions,
             "top_retweet": top_retweets[0] if top_retweets else 0,
-            "cpc": fetch_cpc_dummy(keyword)
+            "cpc": fetch_cpc(keyword)
         }
         logging.info(f"Twitter 수집 완료: {keyword} mentions={mentions} top_retweet={result['top_retweet']} cpc={result['cpc']}")
         return result
